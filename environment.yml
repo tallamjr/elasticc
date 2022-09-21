@@ -1,0 +1,19 @@
+
+name: elasticc
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip
+  - python=3.10
+  - pip:
+    - black
+    - neovim
+    - nbval
+    - pytest
+    - pytest-cov
+    - pytest-subtests
+    - pep517
+    - twine
+    - -r requirements.txt
+

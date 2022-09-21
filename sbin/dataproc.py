@@ -29,7 +29,7 @@ from astronet.preprocess import generate_gp_all_objects, remap_filters
 from astronet.viz.visualise_data import plot_event_gp_mean
 
 classes = [
-    "AGN",
+    # "AGN",
     # "CART",
     # "Cepheid",
     # "EB",
@@ -59,8 +59,8 @@ classes = [
     # "d-Sct",
     # "dwarf-nova",
     # "uLens-Binary",
-    # "uLens-Single-GenLens",
-    # "uLens-Single_PyLIMA",
+    "uLens-Single-GenLens",
+    "uLens-Single_PyLIMA",
 ]
 
 for transient in classes:
