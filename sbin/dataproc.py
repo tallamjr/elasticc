@@ -16,6 +16,7 @@
 # Data Processing Pipeline of 'training_alerts'
 # Refs: https://zenodo.org/record/7017557#.YyrF-uzMKrM
 
+import gc
 import glob
 
 import numpy as np
@@ -32,40 +33,40 @@ classes = [
     # "AGN",
     # "CART",
     # "Cepheid",
-    # "EB",
-    # "ILOT",
-    # "KN_B19",
-    # "KN_K17",
+    # "EB", # EB_3.tar ERROR
+    "ILOT",
+    "KN_B19",
+    "KN_K17",
     # "Mdwarf-flare",
-    # "PISN",
-    # "RRL",
-    # "SLSN-I+host",
-    # "SLSN-I_no_host",
-    # "SNII+HostXT_V19",
-    # "SNII-NMF",
-    # "SNII-Templates",
-    # "SNIIb+HostXT_V19",
-    # "SNIIn+HostXT_V19",
-    # "SNIIn-MOSFIT",
-    # "SNIa-91bg",
-    # "SNIa-SALT2",
-    # "SNIax",
-    # "SNIb+HostXT_V19",
-    # "SNIb-Templates",
-    # "SNIc+HostXT_V19",
-    # "SNIc-Templates",
-    # "SNIcBL+HostXT_V19",
-    # "TDE",
-    # "d-Sct",
-    # "dwarf-nova",
-    # "uLens-Binary",
+    "PISN",
+    "RRL",
+    "SLSN-I+host",
+    "SLSN-I_no_host",
+    "SNII+HostXT_V19",
+    "SNII-NMF",
+    "SNII-Templates",
+    "SNIIb+HostXT_V19",
+    "SNIIn+HostXT_V19",
+    "SNIIn-MOSFIT",
+    "SNIa-91bg",
+    "SNIa-SALT2",
+    "SNIax",
+    "SNIb+HostXT_V19",
+    "SNIb-Templates",
+    "SNIc+HostXT_V19",
+    "SNIc-Templates",
+    "SNIcBL+HostXT_V19",
+    "TDE",
+    "d-Sct",
+    # "dwarf-nova", # EMPTY DIR
+    "uLens-Binary",
     "uLens-Single-GenLens",
     "uLens-Single_PyLIMA",
 ]
 
 for transient in classes:
     queries = []
-    for file in glob.glob(f"../data/processed/training_alerts/{transient}/*"):
+    for file in glob.glob(f"../data/processed/training_alerts_v3/{transient}/*"):
         q = pl.scan_csv(file)
         queries.append(q)
 
@@ -77,7 +78,8 @@ for transient in classes:
 
     pdf.rename(
         {
-            "SIM_Z": "hostgal_photoz",
+            "HOSTGAL_PHOTOZ": "hostgal_photoz",
+            "HOSTGAL_PHOTOZ_ERR": "hostgal_photoz_err",
             "FLUXCAL": "flux",
             "FLUXCALERR": "flux_error",
             "MJD": "mjd",
@@ -95,6 +97,7 @@ for transient in classes:
             "flux",
             "flux_error",
             "hostgal_photoz",
+            "hostgal_photoz_err",
             "passband",
             "object_id",
             "target",
@@ -106,10 +109,9 @@ for transient in classes:
     object_list = list(np.unique(df["object_id"]))
     print(f"NUM TOTAL ALERTS FOR {transient}: {len(object_list)}")
 
-    obs_transient = df
     generated_gp_dataset = generate_gp_all_objects(
         object_list,
-        obs_transient,
+        df,
         timesteps=100,
         pb_wavelengths=ELASTICC_PB_WAVELENGTHS,
     )
@@ -119,12 +121,12 @@ for transient in classes:
         f"NUM PROCESSED ALERTS FOR {transient}: {len(np.unique(generated_gp_dataset['object_id']))}"
     )
 
-    ddf = df[["hostgal_photoz", "object_id", "target"]]
+    ddf = df[["hostgal_photoz", "hostgal_photoz_err", "object_id", "target"]]
 
     dfwz = generated_gp_dataset.merge(ddf, on="object_id", how="left").drop_duplicates()
 
     dfwz.to_csv(
-        f"../data/processed/training_alerts/t2/{transient}.xz", compression="infer"
+        f"../data/processed/t2/{transient}.xz", compression="infer", index=False
     )
 
     # plot_event_gp_mean(
@@ -132,3 +134,25 @@ for transient in classes:
     #     object_id=dfwz["object_id"][0],
     #     pb_colors=ELASTICC_PB_COLORS,
     # )
+
+    f, ax = plot_event_gp_mean(
+        dfwz.filter(
+            items=[
+                "mjd",
+                "lsstg",
+                "lssti",
+                "lsstr",
+                "lsstu",
+                "lssty",
+                "lsstz",
+                "object_id",
+            ]
+        ),
+        object_id=dfwz["object_id"][0],
+        pb_colors=ELASTICC_PB_COLORS,
+    )
+
+    f.savefig(f"../data/processed/t2/{transient}.pdf")
+
+    del [[pldf, pdf, df, generated_gp_dataset, ddf, dfwz]]
+    gc.collect()
