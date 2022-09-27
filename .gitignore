@@ -1,5 +1,14 @@
 # Do not track data files
-data/
+!data/
+data/*
+
+!data/processed/
+data/processed/*
+
+!data/processed/t2/
+data/processed/t2/*
+
+!data/processed/t2/dataset.enc
 
 # General
 .DS_Store
