@@ -34,33 +34,33 @@ classes = [
     # "CART",
     # "Cepheid",
     # "EB", # EB_3.tar ERROR
-    "ILOT",
-    "KN_B19",
-    "KN_K17",
+    # "ILOT",
+    # "KN_B19",
+    # "KN_K17",
     # "Mdwarf-flare",
-    "PISN",
-    "RRL",
-    "SLSN-I+host",
-    "SLSN-I_no_host",
-    "SNII+HostXT_V19",
-    "SNII-NMF",
-    "SNII-Templates",
-    "SNIIb+HostXT_V19",
-    "SNIIn+HostXT_V19",
-    "SNIIn-MOSFIT",
-    "SNIa-91bg",
-    "SNIa-SALT2",
-    "SNIax",
-    "SNIb+HostXT_V19",
-    "SNIb-Templates",
-    "SNIc+HostXT_V19",
-    "SNIc-Templates",
-    "SNIcBL+HostXT_V19",
-    "TDE",
-    "d-Sct",
+    # "PISN",
+    # "RRL",
+    # "SLSN-I+host",
+    # "SLSN-I_no_host",
+    # "SNII+HostXT_V19",
+    # "SNII-NMF",
+    # "SNII-Templates",
+    # "SNIIb+HostXT_V19",
+    # "SNIIn+HostXT_V19",
+    # "SNIIn-MOSFIT",
+    # "SNIa-91bg",
+    # "SNIa-SALT2",
+    # "SNIax",
+    # "SNIb+HostXT_V19",
+    # "SNIb-Templates",
+    # "SNIc+HostXT_V19",
+    # "SNIc-Templates",
+    # "SNIcBL+HostXT_V19",
+    # "TDE",
+    # "d-Sct", # ERROR, d-Sct_28.tar  d-Sct_38.tar  d-Sct_40.tar  d-Sct_8.tar
     # "dwarf-nova", # EMPTY DIR
-    "uLens-Binary",
-    "uLens-Single-GenLens",
+    # "uLens-Binary", # ERROR, uLens-Binary_1.tar  uLens-Binary_2.tar  uLens-Binary_3.tar
+    # "uLens-Single-GenLens",
     "uLens-Single_PyLIMA",
 ]
 
@@ -126,14 +126,10 @@ for transient in classes:
     dfwz = generated_gp_dataset.merge(ddf, on="object_id", how="left").drop_duplicates()
 
     dfwz.to_csv(
-        f"../data/processed/t2/{transient}.xz", compression="infer", index=False
+        f"../data/processed/t2/{transient}.xz",
+        compression="infer",
+        index=False,
     )
-
-    # plot_event_gp_mean(
-    #     generated_gp_dataset,
-    #     object_id=dfwz["object_id"][0],
-    #     pb_colors=ELASTICC_PB_COLORS,
-    # )
 
     f, ax = plot_event_gp_mean(
         dfwz.filter(
