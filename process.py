@@ -70,8 +70,8 @@ labels = [
     111,
     112,
     113,
-    114,
-    115,
+    # 114,
+    # 115,
     121,
     122,
     123,
@@ -157,27 +157,43 @@ for label in labels:
 
     alert_list = list(np.unique(df["object_id"]))
     print(f"NUM ALERTS TO BE PROCESSED: {len(alert_list)}")
+    if len(alert_list) >= 100000:
+        chunk_list = np.array_split(alert_list, 1000)
+    elif len(alert_list) >= 10000:
+        chunk_list = np.array_split(alert_list, 100)
+    else:
+        chunk_list = np.array_split(alert_list, 1)
 
-    generated_gp_dataset = generate_gp_all_objects(alert_list, df)
-    generated_gp_dataset["classId"] = label
+    for num, chunk in enumerate(chunk_list):
 
-    assert len(generated_gp_dataset["object_id"].unique()) == len(alert_list)
-    print(generated_gp_dataset)
-    assert generated_gp_dataset.shape == (len(alert_list) * 100, 9)
+        ddf = df[df["object_id"].isin(chunk_list[num])]
+        print(f"NUM ALERTS IN CHUNK : {len(chunk)}")
+        generated_gp_dataset = generate_gp_all_objects(chunk, ddf)
+        generated_gp_dataset["classId"] = label
 
-    # change dtypes for maximal file compression
-    pldf = pl.from_pandas(generated_gp_dataset)
-    pldf = pldf.with_columns(
-        [
-            pl.all().cast(pl.Float32, strict=False),
-            pl.col("object_id").cast(pl.UInt64, strict=False),
-            pl.col("classId").cast(pl.UInt8, strict=False),
-        ]
-    )
+        assert len(generated_gp_dataset["object_id"].unique()) == len(chunk)
+        print(generated_gp_dataset)
+        assert generated_gp_dataset.shape == (len(chunk) * 100, 9)
 
-    pldf.write_parquet(
-        f"ftransfer_elasticc_2023-02-15_946675/training-transient/classId-{label}.parquet"
-    )
+        # change dtypes for maximal file compression
+        pldf = pl.from_pandas(generated_gp_dataset)
+        pldf = pldf.with_columns(
+            [
+                pl.all().cast(pl.Float32, strict=False),
+                pl.col("object_id").cast(pl.UInt64, strict=False),
+                pl.col("classId").cast(pl.UInt8, strict=False),
+            ]
+        )
+
+        pldf.write_parquet(
+            f"ftransfer_elasticc_2023-02-15_946675/training-transient/classId-{label}-{num}.parquet"
+        )
+
+        del (
+            ddf,
+            generated_gp_dataset,
+        )
+        gc.collect()
 
     # test viz function
     viz_num_filters = 6
@@ -196,7 +212,6 @@ for label in labels:
         ax,
         data,
         df,
-        generated_gp_dataset,
         pdf,
         pldf,
         sub,
