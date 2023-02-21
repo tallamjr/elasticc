@@ -21,6 +21,7 @@ from collections import Counter
 import joblib
 import numpy as np
 import pandas as pd
+import polars as pl
 from astronet.preprocess import one_hot_encode
 from astronet.utils import create_dataset
 from elasticc.utils import get_project_root
@@ -30,9 +31,11 @@ from sklearn.preprocessing import RobustScaler
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
-ROOT = get_project_root()
+# ROOT = get_project_root()
+ROOT = "/Users/tallamjr/github/tallamjr/origin/elasticc"
 
-df = pd.read_parquet(f"{ROOT}/data/processed/training-transients.parquet")
+df = pl.read_parquet(f"{ROOT}/data/processed/training-transients.parquet")
+df = df.rename({"classId": "target"})
 
 x = [
     "lsstg",
@@ -43,12 +46,9 @@ x = [
     "lsstz",
 ]
 
-import pdb
-
-pdb.set_trace()
 num_gps = 100
 
-Xs, ys = create_dataset(df[x], df.target, time_steps=num_gps, step=num_gps)
+Xs, ys = create_dataset(df[x], df["target"], time_steps=num_gps, step=num_gps)
 
 X_train, X_test, y_train, y_test = model_selection.train_test_split(
     Xs, ys, stratify=ys, random_state=RANDOM_SEED
@@ -82,8 +82,8 @@ np.save(f"{ROOT}/data/processed/X_train.npy", X_train)
 np.save(f"{ROOT}/data/processed/X_test.npy", X_test)
 
 # labels
-np.save(f"{ROOT}/data/processed/t2/y_train.npy", y_train)
-np.save(f"{ROOT}/data/processed/t2/y_test.npy", y_test)
+np.save(f"{ROOT}/data/processed/y_train.npy", y_train)
+np.save(f"{ROOT}/data/processed/y_test.npy", y_test)
 
 print(f"TRAIN SHAPES :\n x = {X_train.shape} \n y = {y_train.shape}")
 print(f"TEST SHAPES  :\n x = {X_test.shape} \n y = {y_test.shape} \n")
