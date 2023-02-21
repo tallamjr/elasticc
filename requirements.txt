@@ -8,7 +8,7 @@ fink-client
 matplotlib
 numpy
 pandas
-polars
+polars>=0.16.7
 pyarrow>=10.0.1
 pyyaml
 tabulate
