@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import glob
-
 # Data Processing Pipeline of 'training_alerts'
 # Refs: https://zenodo.org/record/7017557#.YyrF-uzMKrM
 import pprint
@@ -25,21 +23,16 @@ import numpy as np
 import pandas as pd
 from astronet.preprocess import one_hot_encode
 from astronet.utils import create_dataset
+from elasticc.utils import get_project_root
 from sklearn import model_selection
 from sklearn.preprocessing import RobustScaler
 
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
-queries = []
-for file in glob.glob("../data/processed/t2/*.xz"):
-    q = pd.read_csv(file)
-    queries.append(q)
+ROOT = get_project_root()
 
-df = pd.concat(queries)
-
-print(df.head())
-print(df.shape)
+df = pd.read_parquet(f"{ROOT}/data/processed/training-transients.parquet")
 
 x = [
     "lsstg",
@@ -50,23 +43,16 @@ x = [
     "lsstz",
 ]
 
-Xs, ys = create_dataset(df[x], df.target, time_steps=100, step=100)
+import pdb
+
+pdb.set_trace()
+num_gps = 100
+
+Xs, ys = create_dataset(df[x], df.target, time_steps=num_gps, step=num_gps)
+
 X_train, X_test, y_train, y_test = model_selection.train_test_split(
     Xs, ys, stratify=ys, random_state=RANDOM_SEED
 )
-
-z = [
-    "hostgal_photoz",
-    "hostgal_photoz_err",
-]
-
-Zs, ys = create_dataset(df[z], df.target, time_steps=100, step=100)
-Z_train, Z_test, y_train, y_test = model_selection.train_test_split(
-    Zs, ys, stratify=ys, random_state=RANDOM_SEED
-)
-
-Z_train = np.mean(Z_train, axis=1)
-Z_test = np.mean(Z_test, axis=1)
 
 scaler = RobustScaler()
 X_train = X_train.reshape(X_train.shape[0] * 100, 6)
@@ -78,39 +64,26 @@ X_test = X_test.reshape(X_test.shape[0] * 100, 6)
 X_test = scaler.fit(X_test).transform(X_test)
 X_test = X_test.reshape(X_test.shape[0] // 100, 100, 6)
 
-scaler = RobustScaler()
-Z_train = scaler.fit(Z_train).transform(Z_train)
-
-scaler = RobustScaler()
-Z_test = scaler.fit(Z_test).transform(Z_test)
-
 pprint.pprint(Counter(y_train.squeeze()))
 pprint.pprint(Counter(y_test.squeeze()))
 assert set(np.unique(y_train)) == set(np.unique(y_test))
 
 # One hot encode y
 enc, y_train, y_test = one_hot_encode(y_train, y_test)
-encoding_file = "../data/processed/t2/dataset.enc"
+encoding_file = f"{ROOT}/data/processed/transients-dataset.enc"
 
 with open(encoding_file, "wb") as f:
     joblib.dump(enc, f)
 
 print("SAVING NEW DATASET")
-# passbands
-np.save("../data/processed/t2/X_train.npy", X_train)
-np.save("../data/processed/t2/X_test.npy", X_test)
 
-# redshift
-np.save("../data/processed/t2/Z_train.npy", Z_train)
-np.save("../data/processed/t2/Z_test.npy", Z_test)
+# passbands
+np.save(f"{ROOT}/data/processed/X_train.npy", X_train)
+np.save(f"{ROOT}/data/processed/X_test.npy", X_test)
 
 # labels
-np.save("../data/processed/t2/y_train.npy", y_train)
-np.save("../data/processed/t2/y_test.npy", y_test)
+np.save(f"{ROOT}/data/processed/t2/y_train.npy", y_train)
+np.save(f"{ROOT}/data/processed/t2/y_test.npy", y_test)
 
-print(
-    f"TRAIN SHAPES:\n x = {X_train.shape} \n z = {Z_train.shape} \n y = {y_train.shape}"
-)
-print(
-    f"TEST SHAPES:\n x = {X_test.shape} \n z = {Z_test.shape} \n y = {y_test.shape} \n"
-)
+print(f"TRAIN SHAPES :\n x = {X_train.shape} \n y = {y_train.shape}")
+print(f"TEST SHAPES  :\n x = {X_test.shape} \n y = {y_test.shape} \n")

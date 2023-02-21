@@ -1,2 +1,39 @@
 [tool.ruff]
 line-length = 90
+
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+# Not necessary for packaging but every self-respecting Python
+# package should a) use black and b) fix the WRONG default.
+[tool.black]
+line-length = 90
+target-version = ['py37']
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  | foo.py           # also separately exclude a file named foo.py in
+                     # the root of the project
+)
+'''
+
+[tool.setuptools_scm]
+fallback_version = "v0.10.0"
+
+[tool.check-manifest]
+ignore-default-rules = false
+
