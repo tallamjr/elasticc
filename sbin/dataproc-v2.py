@@ -22,11 +22,9 @@ import numpy as np
 import pandas as pd
 from astronet.constants import (
     ELASTICC_FILTER_MAP,
-    ELASTICC_PB_COLORS,
     ELASTICC_PB_WAVELENGTHS,
 )
 from astronet.preprocess import generate_gp_all_objects, remap_filters
-from astronet.viz.visualise_data import plot_event_gp_mean
 
 classes = [
     # "AGN",

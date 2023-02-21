@@ -16,4 +16,3 @@ dependencies:
     - pep517
     - twine
     - -r requirements.txt
-

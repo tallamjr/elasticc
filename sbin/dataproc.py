@@ -66,7 +66,42 @@ classes = [
 
 for transient in classes:
     queries = []
+
+    df = (
+        pl.scan_csv(f"../data/processed/training_alerts_v3/{transient}/*")
+        .rename(
+            {
+                "HOSTGAL_PHOTOZ": "hostgal_photoz",
+                "HOSTGAL_PHOTOZ_ERR": "hostgal_photoz_err",
+                "FLUXCAL": "flux",
+                "FLUXCALERR": "flux_error",
+                "MJD": "mjd",
+                "candid": "object_id",
+                "type": "target",
+                "BAND": "passband",
+            },
+        )
+        .select(
+            [
+                "mjd",
+                "flux",
+                "flux_error",
+                "hostgal_photoz",
+                "hostgal_photoz_err",
+                "passband",
+                "object_id",
+                "target",
+            ]
+        )
+    )
+
+    df.rename({"passband": "filter"})
+    df["filter"].replace(to_replace=ELASTICC_FILTER_MAP, inplace=True)
+
+    df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
+
     for file in glob.glob(f"../data/processed/training_alerts_v3/{transient}/*"):
+
         q = pl.scan_csv(file)
         queries.append(q)
 
@@ -103,8 +138,6 @@ for transient in classes:
             "target",
         ]
     )
-
-    df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
 
     object_list = list(np.unique(df["object_id"]))
     print(f"NUM TOTAL ALERTS FOR {transient}: {len(object_list)}")
