@@ -12,6 +12,8 @@ from astronet.preprocess import (
 )
 from astronet.viz.visualise_data import plot_event_data_with_model
 
+SEED = 9001
+
 
 def extract_history(history_list: list, field: str) -> list:
     """Extract the historical measurements contained in the alerts
@@ -68,19 +70,19 @@ def extract_field(alert: dict, category: str, field: str) -> np.array:
 
 labels = [
     111,
-    112,
-    113,
+    # 112,
+    # 113,
     # 114,
     # 115,
-    121,
-    122,
-    123,
-    124,
-    131,
-    132,
-    133,
-    134,
-    135,
+    # 121,
+    # 122,
+    # 123,
+    # 124,
+    # 131,
+    # 132,
+    # 133,
+    # 134,
+    # 135,
 ]
 
 for label in labels:
@@ -157,14 +159,20 @@ for label in labels:
 
     alert_list = list(np.unique(df["object_id"]))
     print(f"NUM ALERTS TO BE PROCESSED: {len(alert_list)}")
-    if len(alert_list) >= 100000:
-        chunk_list = np.array_split(alert_list, 1000)
-    elif len(alert_list) >= 10000:
+
+    if len(alert_list) > 100000:  # if num alerts > 100,000
+        print(f"SUB-SAMPPLING NUM OBJECT LIST FROM {len(alert_list)} TO 10000")
+        random.seed(SEED)
+        alert_list = random.sample(alert_list, 10000)  # then sub-sample down to 10, 000
+
+    if len(alert_list) >= 5000:
         chunk_list = np.array_split(alert_list, 100)
     else:
         chunk_list = np.array_split(alert_list, 1)
 
     for num, chunk in enumerate(chunk_list):
+
+        print(f"ITERATION : {num}")
 
         ddf = df[df["object_id"].isin(chunk_list[num])]
         print(f"NUM ALERTS IN CHUNK : {len(chunk)}")
@@ -186,7 +194,7 @@ for label in labels:
         )
 
         pldf.write_parquet(
-            f"ftransfer_elasticc_2023-02-15_946675/training-transient/classId-{label}-{num}.parquet"
+            f"ftransfer_elasticc_2023-02-15_946675/training-transient/classId-{label}-{num:03d}.parquet"
         )
 
         del (
