@@ -42,6 +42,8 @@ from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
 )
 
+from elasticc.constants import ROOT
+
 try:
     log = astronet_logger(__file__)
     log.info("Running...\n" + "=" * (shutil.get_terminal_size((80, 20))[0]))
@@ -130,7 +132,7 @@ class Training(object):
 
         # Lazy load data
         # DPATH = f"{asnwd}/data/plasticc/processed"
-        DPATH = "../data/processed"
+        DPATH = f"{ROOT}/data/processed"
 
         X_train = np.load(f"{DPATH}/X_train.npy", mmap_mode="r")
         y_train = np.load(f"{DPATH}/y_train.npy", mmap_mode="r")
@@ -161,7 +163,9 @@ class Training(object):
 
         def get_compiled_model_and_data(loss, drop_remainder):
 
-            hyper_results_file = f"{asnwd}/astronet/{self.architecture}/opt/runs/{self.dataset}/results.json"
+            hyper_results_file = (
+                f"{asnwd}/astronet/t2/opt/runs/{self.dataset}/results.json"
+            )
             input_shapes = input_shape
 
             train_ds = (
