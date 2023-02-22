@@ -68,20 +68,25 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 
 
 labels = [
-    # 111,
+    # 111, # LARGE
     # 112,
-    # 113,
+    # 113, # LARGE
     # 114,
     # 115,
-    121,
-    122,
+    # 121,
+    # 122,
     # 123,
     # 124,
     # 131,
     # 132,
     # 133,
     # 134,
-    135,
+    # 135,
+    # 211,
+    # 212, # LARGE
+    # 213,
+    # 214, # LARGE
+    # 221,
 ]
 
 for label in labels:
@@ -91,7 +96,7 @@ for label in labels:
     pdf = pd.read_parquet(
         f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}"
     )
-    pdf["classId"] = label
+    pdf["target"] = label
 
     pdf["cpsFlux"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
         lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"), axis=1
@@ -109,7 +114,16 @@ for label in labels:
         axis=1,
     )
 
-    # custom, additional features
+    # custom, additional features = [
+    # "z_final",
+    # "z_final_err",
+    # "mwebv",
+    # "ra",
+    # "dec",
+    # "hostgal_ra",
+    # "hostgal_dec",
+    # "NOBS",
+    # ]
     pdf["cZ"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
         lambda x: extract_field(x, "prvDiaForcedSources", "z_final", "diaObject"), axis=1
     )
@@ -120,10 +134,24 @@ for label in labels:
     pdf["cMwebv"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
         lambda x: extract_field(x, "prvDiaForcedSources", "mwebv", "diaObject"), axis=1
     )
+    pdf["cRa"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+        lambda x: extract_field(x, "prvDiaForcedSources", "ra", "diaObject"), axis=1
+    )
+    pdf["cDecl"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+        lambda x: extract_field(x, "prvDiaForcedSources", "decl", "diaObject"), axis=1
+    )
+    pdf["cHostgal_ra"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+        lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_ra", "diaObject"),
+        axis=1,
+    )
+    pdf["cHostgal_dec"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+        lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_dec", "diaObject"),
+        axis=1,
+    )
 
     cols = [
         "alertId",
-        "classId",
+        "target",
         "cmidPointTai",
         "cpsFlux",
         "cpsFluxErr",
@@ -131,6 +159,12 @@ for label in labels:
         "cZ",
         "cZerr",
         "cMwebv",
+        "cRa",
+        "cDecl",
+        "cHostgal_ra",
+        "cHostgal_dec",
+        "SNID",
+        "NOBS",
     ]
     sub = pdf[cols]
 
@@ -156,14 +190,18 @@ for label in labels:
         )
         continue
 
-    sub = sub.explode(column=["cZ", "cZerr", "cMwebv"])
     df = sub.explode(
         column=["cmidPointTai", "cpsFlux", "cpsFluxErr", "cfilterName"]
     ).sort_values(by=["index", "cfilterName"])
 
+    df = df.explode(
+        column=["cZ", "cZerr", "cMwebv", "cRa", "cDecl", "cHostgal_ra", "cHostgal_dec"]
+    )
+
     df = df.rename(
         columns={
             "alertId": "object_id",
+            "SNID": "uuid",
             "cmidPointTai": "mjd",
             "cpsFlux": "flux",
             "cpsFluxErr": "flux_error",
@@ -171,12 +209,17 @@ for label in labels:
             "cZ": "z",
             "cZerr": "z_error",
             "cMwebv": "mwebv",
+            "cRa": "ra",
+            "cDecl": "dec",
+            "cHostgal_ra": "hostgal_ra",
+            "cHostgal_dec": "hostgal_dec",
+            "NOBS": "nobs",
         }
     )
 
     df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
 
-    assert df.shape[1] == 10
+    assert df.shape[1] == 16
 
     df = df.drop(columns=["index"])
 
@@ -200,25 +243,26 @@ for label in labels:
         ddf = df[df["object_id"].isin(chunk_list[num])]
         print(f"NUM ALERTS IN CHUNK : {len(chunk)}")
         generated_gp_dataset = generate_gp_all_objects(chunk, ddf)
-        generated_gp_dataset["classId"] = label
+        generated_gp_dataset["target"] = label
 
         assert len(generated_gp_dataset["object_id"].unique()) == len(chunk)
         print(generated_gp_dataset)
         assert generated_gp_dataset.shape == (len(chunk) * 100, 9)
 
-        df_merge = df.drop(columns=["mjd", "filter", "flux", "flux_error", "classId"])
+        df_merge = df.drop(columns=["mjd", "filter", "flux", "flux_error", "target"])
         df_with_xfeats = generated_gp_dataset.merge(df_merge, on="object_id", how="inner")
-
         df_with_xfeats.drop_duplicates(keep="first", inplace=True, ignore_index=True)
+        assert df_with_xfeats.shape == (len(chunk) * 100, 18)
 
-        assert df_with_xfeats.shape == (len(chunk) * 100, 12)
         # change dtypes for maximal file compression
         pldf = pl.from_pandas(df_with_xfeats)
         pldf = pldf.with_columns(
             [
                 pl.all().cast(pl.Float32, strict=False),
                 pl.col("object_id").cast(pl.UInt64, strict=False),
-                pl.col("classId").cast(pl.UInt8, strict=False),
+                pl.col("uuid").cast(pl.UInt32, strict=False),
+                pl.col("target").cast(pl.UInt8, strict=False),
+                pl.col("nobs").cast(pl.UInt8, strict=False),
             ]
         )
 
