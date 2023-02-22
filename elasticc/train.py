@@ -127,8 +127,8 @@ class Training(object):
             return LABEL
 
         LABEL = build_label()
-        checkpoint_path = f"./models/{self.dataset}/checkpoints/checkpoint-{LABEL}"
-        csv_logger_file = f"./models/logs/{self.architecture}/training-{LABEL}.log"
+        checkpoint_path = f"{ROOT}/models/checkpoints/checkpoint-{LABEL}"
+        csv_logger_file = f"{ROOT}/models/logs/{self.architecture}/training-{LABEL}.log"
 
         # Lazy load data
         # DPATH = f"{asnwd}/data/plasticc/processed"
@@ -328,8 +328,8 @@ class Training(object):
         LABEL += f"-LL{WLOSS:.3f}"  # Append loss score
 
         # if SYSTEM != "Darwin":
-        model.save(f"./models/{self.dataset}/model-{LABEL}")
-        model.save_weights(f"./models/{self.dataset}/weights/weights-{LABEL}")
+        model.save(f"{ROOT}/models/model-{LABEL}")
+        model.save_weights(f"{ROOT}/models/weights/weights-{LABEL}")
 
         if X_test.shape[0] < 10000:
             batch_size = X_test.shape[0]  # Use all samples in test set to evaluate
