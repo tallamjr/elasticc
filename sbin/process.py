@@ -11,6 +11,7 @@ from astronet.preprocess import (
     remap_filters,
 )
 from astronet.viz.visualise_data import plot_event_data_with_model
+from elasticc.constants import ROOT
 
 SEED = 9001
 
@@ -43,7 +44,7 @@ def extract_history(history_list: list, field: str) -> list:
     return measurement
 
 
-def extract_field(alert: dict, category: str, field: str) -> np.array:
+def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
     """Concatenate current and historical observation data for a given field.
 
     Parameters
@@ -62,26 +63,24 @@ def extract_field(alert: dict, category: str, field: str) -> np.array:
         end. If `field` is not in the category, data will be
         [alert['diaSource'][field]].
     """
-    data = np.concatenate(
-        [[alert["diaSource"][field]], extract_history(alert[category], field)]
-    )
+    data = np.concatenate([[alert[key][field]], extract_history(alert[category], field)])
     return data
 
 
 labels = [
     # 111,
-    112,
+    # 112,
     # 113,
-    114,
-    115,
+    # 114,
+    # 115,
     121,
     122,
-    123,
-    124,
-    131,
-    132,
-    133,
-    134,
+    # 123,
+    # 124,
+    # 131,
+    # 132,
+    # 133,
+    # 134,
     135,
 ]
 
@@ -89,20 +88,37 @@ for label in labels:
 
     print(f"PROCESSING classId -- {label}")
 
-    pdf = pd.read_parquet(f"ftransfer_elasticc_2023-02-15_946675/classId={label}")
+    pdf = pd.read_parquet(
+        f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}"
+    )
     pdf["classId"] = label
 
     pdf["cpsFlux"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "psFlux"), axis=1
+        lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"), axis=1
     )
     pdf["cpsFluxErr"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "psFluxErr"), axis=1
+        lambda x: extract_field(x, "prvDiaForcedSources", "psFluxErr", "diaSource"),
+        axis=1,
     )
     pdf["cfilterName"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "filterName"), axis=1
+        lambda x: extract_field(x, "prvDiaForcedSources", "filterName", "diaSource"),
+        axis=1,
     )
     pdf["cmidPointTai"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "midPointTai"), axis=1
+        lambda x: extract_field(x, "prvDiaForcedSources", "midPointTai", "diaSource"),
+        axis=1,
+    )
+
+    # custom, additional features
+    pdf["cZ"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+        lambda x: extract_field(x, "prvDiaForcedSources", "z_final", "diaObject"), axis=1
+    )
+    pdf["cZerr"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+        lambda x: extract_field(x, "prvDiaForcedSources", "z_final_err", "diaObject"),
+        axis=1,
+    )
+    pdf["cMwebv"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+        lambda x: extract_field(x, "prvDiaForcedSources", "mwebv", "diaObject"), axis=1
     )
 
     cols = [
@@ -112,6 +128,9 @@ for label in labels:
         "cpsFlux",
         "cpsFluxErr",
         "cfilterName",
+        "cZ",
+        "cZerr",
+        "cMwebv",
     ]
     sub = pdf[cols]
 
@@ -137,6 +156,7 @@ for label in labels:
         )
         continue
 
+    sub = sub.explode(column=["cZ", "cZerr", "cMwebv"])
     df = sub.explode(
         column=["cmidPointTai", "cpsFlux", "cpsFluxErr", "cfilterName"]
     ).sort_values(by=["index", "cfilterName"])
@@ -148,12 +168,15 @@ for label in labels:
             "cpsFlux": "flux",
             "cpsFluxErr": "flux_error",
             "cfilterName": "filter",
+            "cZ": "z",
+            "cZerr": "z_error",
+            "cMwebv": "mwebv",
         }
     )
 
     df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
 
-    assert df.shape[1] == 7
+    assert df.shape[1] == 10
 
     df = df.drop(columns=["index"])
 
@@ -183,8 +206,14 @@ for label in labels:
         print(generated_gp_dataset)
         assert generated_gp_dataset.shape == (len(chunk) * 100, 9)
 
+        df_merge = df.drop(columns=["mjd", "filter", "flux", "flux_error", "classId"])
+        df_with_xfeats = generated_gp_dataset.merge(df_merge, on="object_id", how="inner")
+
+        df_with_xfeats.drop_duplicates(keep="first", inplace=True, ignore_index=True)
+
+        assert df_with_xfeats.shape == (len(chunk) * 100, 12)
         # change dtypes for maximal file compression
-        pldf = pl.from_pandas(generated_gp_dataset)
+        pldf = pl.from_pandas(df_with_xfeats)
         pldf = pldf.with_columns(
             [
                 pl.all().cast(pl.Float32, strict=False),
@@ -194,11 +223,13 @@ for label in labels:
         )
 
         pldf.write_parquet(
-            f"ftransfer_elasticc_2023-02-15_946675/training-transient/classId-{label}-{num:03d}.parquet"
+            f"{ROOT}/data/processed/training-transient/classId-{label}-{num:03d}.parquet"
         )
 
         del (
             ddf,
+            df_merge,
+            df_with_xfeats,
             generated_gp_dataset,
         )
         gc.collect()
