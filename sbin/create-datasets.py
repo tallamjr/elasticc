@@ -20,7 +20,6 @@ from collections import Counter
 
 import joblib
 import numpy as np
-import pandas as pd
 import polars as pl
 from astronet.preprocess import one_hot_encode
 from astronet.utils import create_dataset
@@ -34,8 +33,8 @@ np.random.seed(RANDOM_SEED)
 # ROOT = get_project_root()
 ROOT = "/Users/tallamjr/github/tallamjr/origin/elasticc"
 
-df = pl.read_parquet(f"{ROOT}/data/processed/training-transients.parquet")
-df = df.rename({"classId": "target"})
+# df = pl.read_parquet(f"{ROOT}/data/processed/training-transients.parquet")
+df = pl.read_parquet(f"{ROOT}/data/processed/training-transient/classId-121-*")
 
 x = [
     "lsstg",
@@ -64,6 +63,42 @@ X_test = X_test.reshape(X_test.shape[0] * 100, 6)
 X_test = scaler.fit(X_test).transform(X_test)
 X_test = X_test.reshape(X_test.shape[0] // 100, 100, 6)
 
+z = [
+    "z",
+    "z_error",
+]
+Zs, ys = create_dataset(df[z], df["target"], time_steps=100, step=100)
+Z_train, Z_test, _, _ = model_selection.train_test_split(
+    Zs, ys, stratify=ys, random_state=RANDOM_SEED
+)
+
+Z_train = np.mean(Z_train, axis=1)
+Z_test = np.mean(Z_test, axis=1)
+
+scaler = RobustScaler()
+Z_train = scaler.fit(Z_train).transform(Z_train)
+
+scaler = RobustScaler()
+Z_test = scaler.fit(Z_test).transform(Z_test)
+
+z = [
+    "ra",
+    "dec",
+    "hostgal_ra",
+    "hostgal_dec",
+    "nobs",
+]
+Zs, ys = create_dataset(df[z], df["target"], time_steps=100, step=100)
+Z_train_add, Z_test_add, _, _ = model_selection.train_test_split(
+    Zs, ys, stratify=ys, random_state=RANDOM_SEED
+)
+
+Z_train_add = np.mean(Z_train_add, axis=1)
+Z_test_add = np.mean(Z_test_add, axis=1)
+
+Z_train = np.hstack((Z_train, Z_train_add)).shape
+Z_test = np.hstack((Z_test, Z_test_add)).shape
+
 pprint.pprint(Counter(y_train.squeeze()))
 pprint.pprint(Counter(y_test.squeeze()))
 assert set(np.unique(y_train)) == set(np.unique(y_test))
@@ -81,9 +116,15 @@ print("SAVING NEW DATASET")
 np.save(f"{ROOT}/data/processed/X_train.npy", X_train)
 np.save(f"{ROOT}/data/processed/X_test.npy", X_test)
 
+# additional features
+np.save(f"{ROOT}/data/processed/Z_train.npy", Z_train)
+np.save(f"{ROOT}/data/processed/Z_test.npy", Z_test)
+
 # labels
 np.save(f"{ROOT}/data/processed/y_train.npy", y_train)
 np.save(f"{ROOT}/data/processed/y_test.npy", y_test)
 
-print(f"TRAIN SHAPES :\n x = {X_train.shape} \n y = {y_train.shape}")
-print(f"TEST SHAPES  :\n x = {X_test.shape} \n y = {y_test.shape} \n")
+print(
+    f"TRAIN SHAPES:\n x = {X_train.shape} \n z = {Z_train.shape} \n y = {y_train.shape}"
+)
+print(f"TEST SHAPES:\n x = {X_test.shape} \n z = {Z_test.shape} \n y = {y_test.shape} \n")
