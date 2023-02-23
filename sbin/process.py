@@ -38,7 +38,7 @@ def extract_history(history_list: list, field: str) -> list:
     try:
         measurement = [obs[field] for obs in history_list]
     except KeyError:
-        print("{} not in history data".format(field))
+        # print("{} not in history data".format(field))
         measurement = []
 
     return measurement
@@ -68,34 +68,39 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 
 
 labels = [
-    # 111, # LARGE
-    # 112,
-    # 113, # LARGE
-    # 114,
-    # 115,
-    # 121,
-    # 122,
-    # 123,
-    # 124,
-    # 131,
-    # 132,
-    # 133,
-    # 134,
-    # 135,
-    # 211,
-    # 212, # LARGE
-    # 213,
-    # 214, # LARGE
-    # 221,
+    # 111,  # LARGE 🚧
+    # 112, # ✅
+    # 113,  # LARGE 🚧
+    # 114, # ✅
+    # 115, # ✅
+    # 121, # ✅
+    # 122, # ✅
+    # 123, # ✅
+    # 124, # ✅
+    # 131, # ✅
+    # 132, # ✅
+    # 133, # ✅
+    # 134, # ✅
+    # 135, # ✅
+    # 211, # ✅
+    # 212,  # LARGE 🚧
+    # 213, # ✅
+    214,  # LARGE 🚧
+    # 221, # ✅
 ]
 
 for label in labels:
 
     print(f"PROCESSING classId -- {label}")
 
-    pdf = pd.read_parquet(
+    df = pd.read_parquet(
         f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}"
     )
+    if df.shape[0] >= 1000000:  # if dataframe greater than a million rows
+        pdf = df.sample(frac=0.2, random_state=SEED)  # then reduce down to 20%
+        del df
+        gc.collect()
+
     pdf["target"] = label
 
     pdf["cpsFlux"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
