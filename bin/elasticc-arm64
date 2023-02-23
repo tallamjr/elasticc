@@ -40,7 +40,8 @@ if [ $operation == "train" ]; then
         --architecture $architecture \
         --dataset $dataset \
         --epochs 200 \
-        --model $model
+        --model $model \
+        --redshift ""
 else
     echo "Please provide an argument for $operation"
 fi
