@@ -33,8 +33,8 @@ np.random.seed(RANDOM_SEED)
 # ROOT = get_project_root()
 ROOT = "/Users/tallamjr/github/tallamjr/origin/elasticc"
 
-# df = pl.read_parquet(f"{ROOT}/data/processed/training-transients.parquet")
-df = pl.read_parquet(f"{ROOT}/data/processed/training-transient/classId-121-*")
+df = pl.read_parquet(f"{ROOT}/data/processed/train.parquet")
+# df = pl.read_parquet(f"{ROOT}/data/processed/training-transient/classId-121-*")
 
 x = [
     "lsstg",
@@ -47,11 +47,29 @@ x = [
 
 num_gps = 100
 
-Xs, ys = create_dataset(df[x], df["target"], time_steps=num_gps, step=num_gps)
-
-X_train, X_test, y_train, y_test = model_selection.train_test_split(
-    Xs, ys, stratify=ys, random_state=RANDOM_SEED
+Xs, ys, groups = create_dataset(
+    df[x], df["target"], df["uuid"], time_steps=num_gps, step=num_gps
 )
+
+print(groups.shape)
+
+gss = model_selection.GroupShuffleSplit(
+    n_splits=1, train_size=0.7, random_state=RANDOM_SEED
+)
+gss.get_n_splits()
+
+print(gss)
+
+for i, (train_index, test_index) in enumerate(gss.split(Xs, ys, groups)):
+    print(f"Fold {i}:")
+    print(f"  Train: index={train_index}, group={groups[train_index]}")
+    print(f"  Test:  index={test_index}, group={groups[test_index]}")
+
+X_train = Xs[train_index]
+X_test = Xs[test_index]
+
+y_train = ys[train_index]
+y_test = ys[test_index]
 
 scaler = RobustScaler()
 X_train = X_train.reshape(X_train.shape[0] * 100, 6)
@@ -67,10 +85,11 @@ z = [
     "z",
     "z_error",
 ]
-Zs, ys = create_dataset(df[z], df["target"], time_steps=100, step=100)
-Z_train, Z_test, _, _ = model_selection.train_test_split(
-    Zs, ys, stratify=ys, random_state=RANDOM_SEED
-)
+
+Zs, ys, gids = create_dataset(df[z], df["target"], df["uuid"], time_steps=100, step=100)
+
+Z_train = Zs[train_index]
+Z_test = Zs[test_index]
 
 Z_train = np.mean(Z_train, axis=1)
 Z_test = np.mean(Z_test, axis=1)
@@ -88,16 +107,17 @@ z = [
     "hostgal_dec",
     "nobs",
 ]
-Zs, ys = create_dataset(df[z], df["target"], time_steps=100, step=100)
-Z_train_add, Z_test_add, _, _ = model_selection.train_test_split(
-    Zs, ys, stratify=ys, random_state=RANDOM_SEED
-)
+
+Zs, ys, gids = create_dataset(df[z], df["target"], df["uuid"], time_steps=100, step=100)
+
+Z_train_add = Zs[train_index]
+Z_test_add = Zs[test_index]
 
 Z_train_add = np.mean(Z_train_add, axis=1)
 Z_test_add = np.mean(Z_test_add, axis=1)
 
-Z_train = np.hstack((Z_train, Z_train_add)).shape
-Z_test = np.hstack((Z_test, Z_test_add)).shape
+Z_train = np.hstack((Z_train, Z_train_add))
+Z_test = np.hstack((Z_test, Z_test_add))
 
 pprint.pprint(Counter(y_train.squeeze()))
 pprint.pprint(Counter(y_test.squeeze()))
@@ -105,7 +125,7 @@ assert set(np.unique(y_train)) == set(np.unique(y_test))
 
 # One hot encode y
 enc, y_train, y_test = one_hot_encode(y_train, y_test)
-encoding_file = f"{ROOT}/data/processed/transients-dataset.enc"
+encoding_file = f"{ROOT}/data/processed/dataset.enc"
 
 with open(encoding_file, "wb") as f:
     joblib.dump(enc, f)
