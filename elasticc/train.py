@@ -29,7 +29,7 @@ import psutil
 import tensorflow as tf
 from astronet.constants import ASTRONET_WORKING_DIRECTORY as asnwd
 from astronet.custom_callbacks import TimeHistoryCallback
-from astronet.datasets import lazy_load_noZ
+from astronet.datasets import lazy_load_noZ, lazy_load_wZ
 from astronet.fetch_models import fetch_model
 from astronet.metrics import DistributedWeightedLogLoss, WeightedLogLoss
 from astronet.utils import astronet_logger, find_optimal_batch_size
@@ -135,9 +135,11 @@ class Training(object):
         DPATH = f"{ROOT}/data/processed"
 
         X_train = np.load(f"{DPATH}/X_train.npy", mmap_mode="r")
+        Z_train = np.load(f"{DPATH}/Z_train.npy", mmap_mode="r")
         y_train = np.load(f"{DPATH}/y_train.npy", mmap_mode="r")
 
         X_test = np.load(f"{DPATH}/X_test.npy", mmap_mode="r")
+        Z_test = np.load(f"{DPATH}/Z_test.npy", mmap_mode="r")
         y_test = np.load(f"{DPATH}/y_test.npy", mmap_mode="r")
 
         # >>> train_ds.element_spec[1].shape
@@ -145,7 +147,7 @@ class Training(object):
         # num_classes = train_ds.element_spec[1].shape.as_list()[0]
         num_classes = y_train.shape[1]
 
-        log.info(f"{X_train.shape, y_train.shape}")
+        log.info(f"{X_train.shape, Z_train.shape, y_train.shape}")
 
         (
             num_samples,
@@ -163,24 +165,45 @@ class Training(object):
 
         def get_compiled_model_and_data(loss, drop_remainder):
 
-            hyper_results_file = (
-                f"{asnwd}/astronet/t2/opt/runs/{self.dataset}/results.json"
-            )
-            input_shapes = input_shape
+            if self.redshift is not None:
+                hyper_results_file = (
+                    f"{asnwd}/astronet/t2/opt/runs/{self.dataset}/results_with_z.json"
+                )
+                input_shapes = [input_shape, (BATCH_SIZE, Z_train.shape[1])]
 
-            train_ds = (
-                lazy_load_noZ(X_train, y_train)
-                .shuffle(1000, seed=RANDOM_SEED)
-                .batch(BATCH_SIZE, drop_remainder=drop_remainder)
-                .prefetch(tf.data.AUTOTUNE)
-                .cache()
-            )
-            test_ds = (
-                lazy_load_noZ(X_test, y_test)
-                .batch(BATCH_SIZE, drop_remainder=drop_remainder)
-                .prefetch(tf.data.AUTOTUNE)
-                .cache()
-            )
+                train_ds = (
+                    lazy_load_wZ(X_train, Z_train, y_train)
+                    .shuffle(1000, seed=RANDOM_SEED)
+                    .batch(BATCH_SIZE, drop_remainder=drop_remainder)
+                    .prefetch(tf.data.AUTOTUNE)
+                    .cache()
+                )
+                test_ds = (
+                    lazy_load_wZ(X_test, Z_test, y_test)
+                    .batch(BATCH_SIZE, drop_remainder=drop_remainder)
+                    .prefetch(tf.data.AUTOTUNE)
+                    .cache()
+                )
+
+            else:
+                hyper_results_file = (
+                    f"{asnwd}/astronet/t2/opt/runs/{self.dataset}/results.json"
+                )
+                input_shapes = input_shape
+
+                train_ds = (
+                    lazy_load_noZ(X_train, y_train)
+                    .shuffle(1000, seed=RANDOM_SEED)
+                    .batch(BATCH_SIZE, drop_remainder=drop_remainder)
+                    .prefetch(tf.data.AUTOTUNE)
+                    .cache()
+                )
+                test_ds = (
+                    lazy_load_noZ(X_test, y_test)
+                    .batch(BATCH_SIZE, drop_remainder=drop_remainder)
+                    .prefetch(tf.data.AUTOTUNE)
+                    .cache()
+                )
 
             model, event = fetch_model(
                 model=self.model,
@@ -373,9 +396,12 @@ class Training(object):
 
         del event["lr"]
 
-        train_results_file = (
-            f"{asnwd}/astronet/{self.architecture}/models/{self.dataset}/results.json"
-        )
+        if self.redshift is not None:
+            train_results_file = f"{asnwd}/astronet/{self.architecture}/models/{self.dataset}/results_with_z.json"
+        else:
+            train_results_file = (
+                f"{asnwd}/astronet/{self.architecture}/models/{self.dataset}/results.json"
+            )
 
         with open(train_results_file) as jf:
             data = json.load(jf)
