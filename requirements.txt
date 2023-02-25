@@ -5,6 +5,7 @@ coverage>=4.2
 coveralls
 fastavro==1.6.0
 fink-client
+optuna
 matplotlib
 numpy
 pandas
