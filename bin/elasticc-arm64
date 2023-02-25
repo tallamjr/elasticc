@@ -35,6 +35,7 @@ if [ $operation == "train" ]; then
     case "$architecture" in
      "atx") model="scaledown-by-4" ;;
      *) model="1613517996-0a72904" ;; # t2 and tinho use same starting hyperparameters
+     # *) model="fix" ;; # trial different set of params
     esac
     python $ROOT/elasticc/train.py \
         --architecture $architecture \
