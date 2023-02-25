@@ -38,7 +38,7 @@ def extract_history(history_list: list, field: str) -> list:
     try:
         measurement = [obs[field] for obs in history_list]
     except KeyError:
-        # print("{} not in history data".format(field))
+        print("{} not in history data".format(field))
         measurement = []
 
     return measurement
@@ -68,38 +68,38 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 
 
 labels = [
-    # 111,  # LARGE 🚧
-    # 112, # ✅
+    111,  # LARGE
+    # 112,
     # 113,  # LARGE 🚧
-    # 114, # ✅
-    # 115, # ✅
-    # 121, # ✅
-    # 122, # ✅
-    # 123, # ✅
-    # 124, # ✅
-    # 131, # ✅
-    # 132, # ✅
-    # 133, # ✅
-    # 134, # ✅
-    # 135, # ✅
-    # 211, # ✅
-    # 212,  # LARGE 🚧
-    # 213, # ✅
-    214,  # LARGE 🚧
-    # 221, # ✅
+    # 114,
+    # 115,
+    # 121,
+    # 122,
+    # 123,
+    # 124,
+    # 131,
+    # 132,
+    # 133,
+    # 134,
+    # 135,
+    # 211,
+    # 212,  # LARGE
+    # 213,
+    # 214,  # LARGE
+    # 221,
 ]
 
 for label in labels:
 
     print(f"PROCESSING classId -- {label}")
 
-    df = pd.read_parquet(
+    pdf = pd.read_parquet(
         f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}"
     )
-    if df.shape[0] >= 1000000:  # if dataframe greater than a million rows
-        pdf = df.sample(frac=0.2, random_state=SEED)  # then reduce down to 20%
-        del df
-        gc.collect()
+    # if df.shape[0] >= 1000000:  # if dataframe greater than a million rows
+    #     pdf = df.sample(frac=0.2, random_state=SEED)  # then reduce down to 20%
+    #     del df
+    #     gc.collect()
 
     pdf["target"] = label
 
@@ -119,40 +119,30 @@ for label in labels:
         axis=1,
     )
 
-    # custom, additional features = [
-    # "z_final",
-    # "z_final_err",
-    # "mwebv",
-    # "ra",
-    # "dec",
-    # "hostgal_ra",
-    # "hostgal_dec",
-    # "NOBS",
-    # ]
-    pdf["cZ"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "z_final", "diaObject"), axis=1
-    )
-    pdf["cZerr"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "z_final_err", "diaObject"),
-        axis=1,
-    )
-    pdf["cMwebv"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "mwebv", "diaObject"), axis=1
-    )
-    pdf["cRa"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "ra", "diaObject"), axis=1
-    )
-    pdf["cDecl"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "decl", "diaObject"), axis=1
-    )
-    pdf["cHostgal_ra"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_ra", "diaObject"),
-        axis=1,
-    )
-    pdf["cHostgal_dec"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_dec", "diaObject"),
-        axis=1,
-    )
+    # pdf["cZ"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+    #     lambda x: extract_field(x, "prvDiaForcedSources", "z_final", "diaObject"), axis=1
+    # )
+    # pdf["cZerr"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+    #     lambda x: extract_field(x, "prvDiaForcedSources", "z_final_err", "diaObject"),
+    #     axis=1,
+    # )
+    # pdf["cMwebv"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+    #     lambda x: extract_field(x, "prvDiaForcedSources", "mwebv", "diaObject"), axis=1
+    # )
+    # pdf["cRa"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+    #     lambda x: extract_field(x, "prvDiaForcedSources", "ra", "diaObject"), axis=1
+    # )
+    # pdf["cDecl"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+    #     lambda x: extract_field(x, "prvDiaForcedSources", "decl", "diaObject"), axis=1
+    # )
+    # pdf["cHostgal_ra"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+    #     lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_ra", "diaObject"),
+    #     axis=1,
+    # )
+    # pdf["cHostgal_dec"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+    #     lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_dec", "diaObject"),
+    #     axis=1,
+    # )
 
     cols = [
         "alertId",
@@ -161,15 +151,15 @@ for label in labels:
         "cpsFlux",
         "cpsFluxErr",
         "cfilterName",
-        "cZ",
-        "cZerr",
-        "cMwebv",
-        "cRa",
-        "cDecl",
-        "cHostgal_ra",
-        "cHostgal_dec",
+        # "cZ",
+        # "cZerr",
+        # "cMwebv",
+        # "cRa",
+        # "cDecl",
+        # "cHostgal_ra",
+        # "cHostgal_dec",
         "SNID",
-        "NOBS",
+        # "NOBS",
     ]
     sub = pdf[cols]
 
@@ -199,9 +189,12 @@ for label in labels:
         column=["cmidPointTai", "cpsFlux", "cpsFluxErr", "cfilterName"]
     ).sort_values(by=["index", "cfilterName"])
 
-    df = df.explode(
-        column=["cZ", "cZerr", "cMwebv", "cRa", "cDecl", "cHostgal_ra", "cHostgal_dec"]
-    )
+    # df = df.explode(
+    #     column=[
+    #         "cZ",
+    #         "cZerr",
+    #     ]  # "cMwebv", "cRa", "cDecl", "cHostgal_ra", "cHostgal_dec"]
+    # )
 
     df = df.rename(
         columns={
@@ -211,22 +204,46 @@ for label in labels:
             "cpsFlux": "flux",
             "cpsFluxErr": "flux_error",
             "cfilterName": "filter",
-            "cZ": "z",
-            "cZerr": "z_error",
-            "cMwebv": "mwebv",
-            "cRa": "ra",
-            "cDecl": "dec",
-            "cHostgal_ra": "hostgal_ra",
-            "cHostgal_dec": "hostgal_dec",
-            "NOBS": "nobs",
+            # "cZ": "z",
+            # "cZerr": "z_error",
+            # "cMwebv": "mwebv",
+            # "cRa": "ra",
+            # "cDecl": "dec",
+            # "cHostgal_ra": "hostgal_ra",
+            # "cHostgal_dec": "hostgal_dec",
+            # "NOBS": "nobs",
         }
     )
 
     df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
 
-    assert df.shape[1] == 16
+    additional_features = [
+        # "z_final",
+        # "z_final_err",
+        # "mwebv",
+        # "ra",
+        # "dec",
+        # "hostgal_ra",
+        # "hostgal_dec",
+        # "NOBS",
+    ]
 
     df = df.drop(columns=["index"])
+
+    assert df.shape[1] == (
+        len(
+            [
+                "object_id",
+                "mjd",
+                "flux",
+                "flux_error",
+                "filter",
+                "target",
+                "uuid",
+            ]
+        )
+        + len(additional_features)
+    )
 
     alert_list = list(np.unique(df["object_id"]))
     print(f"NUM ALERTS TO BE PROCESSED: {len(alert_list)}")
@@ -252,12 +269,31 @@ for label in labels:
 
         assert len(generated_gp_dataset["object_id"].unique()) == len(chunk)
         print(generated_gp_dataset)
-        assert generated_gp_dataset.shape == (len(chunk) * 100, 9)
+
+        time_series_feats = [
+            "mjd",
+            "lsstg",
+            "lssti",
+            "lsstr",
+            "lsstu",
+            "lssty",
+            "lsstz",
+        ]
+
+        assert generated_gp_dataset.shape == (
+            len(chunk) * 100,
+            len(time_series_feats) + len(["object_id", "target"]),
+        )
 
         df_merge = df.drop(columns=["mjd", "filter", "flux", "flux_error", "target"])
         df_with_xfeats = generated_gp_dataset.merge(df_merge, on="object_id", how="inner")
         df_with_xfeats.drop_duplicates(keep="first", inplace=True, ignore_index=True)
-        assert df_with_xfeats.shape == (len(chunk) * 100, 18)
+        assert df_with_xfeats.shape == (
+            len(chunk) * 100,
+            len(time_series_feats)
+            + len(additional_features)
+            + len(["object_id", "target", "uuid"]),
+        )
 
         # change dtypes for maximal file compression
         pldf = pl.from_pandas(df_with_xfeats)
@@ -267,12 +303,12 @@ for label in labels:
                 pl.col("object_id").cast(pl.UInt64, strict=False),
                 pl.col("uuid").cast(pl.UInt32, strict=False),
                 pl.col("target").cast(pl.UInt8, strict=False),
-                pl.col("nobs").cast(pl.UInt8, strict=False),
+                # pl.col("nobs").cast(pl.UInt8, strict=False),
             ]
         )
 
         pldf.write_parquet(
-            f"{ROOT}/data/processed/training-transient/classId-{label}-{num:03d}.parquet"
+            f"{ROOT}/data/processed/{cat}/classId-{label}-{num:03d}.parquet"
         )
 
         del (
