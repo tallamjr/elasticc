@@ -166,9 +166,7 @@ class Training(object):
         def get_compiled_model_and_data(loss, drop_remainder):
 
             if self.redshift is not None:
-                hyper_results_file = (
-                    f"{asnwd}/astronet/t2/opt/runs/{self.dataset}/results_with_z.json"
-                )
+                hyper_results_file = f"{asnwd}/astronet/{self.architecture}/opt/runs/{self.dataset}/results_with_z.json"
                 input_shapes = [input_shape, (BATCH_SIZE, Z_train.shape[1])]
 
                 train_ds = (
@@ -186,9 +184,7 @@ class Training(object):
                 )
 
             else:
-                hyper_results_file = (
-                    f"{asnwd}/astronet/t2/opt/runs/{self.dataset}/results.json"
-                )
+                hyper_results_file = f"{asnwd}/astronet/{self.architecture}/opt/runs/{self.dataset}/results.json"
                 input_shapes = input_shape
 
                 train_ds = (
@@ -218,7 +214,12 @@ class Training(object):
             model.compile(
                 loss=loss,
                 optimizer=optimizers.Adam(learning_rate=learning_rate, clipnorm=1),
-                metrics=["acc"],
+                metrics=[
+                    tf.keras.metrics.Accuracy(name="acc"),
+                    tf.keras.metrics.PrecisionAtRecall(recall=0.8, name="pr"),
+                    tf.keras.metrics.Precision(name="precision"),
+                    tf.keras.metrics.TopKCategoricalAccuracy(name="topk-catacc"),
+                ],
                 run_eagerly=True,  # Show values when debugging. Also required for use with custom_log_loss
             )
 
