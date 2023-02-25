@@ -1,3 +1,13 @@
+checkpoints/
+
+# Archived models and weights
+archive
+weights
+
+logs/
+*.log
+*.pdf
+
 # Do not track data files
 !data/
 data/*
