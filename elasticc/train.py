@@ -135,19 +135,22 @@ class Training(object):
         DPATH = f"{ROOT}/data/processed"
 
         X_train = np.load(f"{DPATH}/X_train.npy", mmap_mode="r")
-        Z_train = np.load(f"{DPATH}/Z_train.npy", mmap_mode="r")
         y_train = np.load(f"{DPATH}/y_train.npy", mmap_mode="r")
 
         X_test = np.load(f"{DPATH}/X_test.npy", mmap_mode="r")
-        Z_test = np.load(f"{DPATH}/Z_test.npy", mmap_mode="r")
         y_test = np.load(f"{DPATH}/y_test.npy", mmap_mode="r")
+
+        log.info(f"{X_train.shape, y_train.shape}")
+
+        if self.redshift is not None:
+            Z_train = np.load(f"{DPATH}/Z_train.npy", mmap_mode="r")
+            Z_test = np.load(f"{DPATH}/Z_test.npy", mmap_mode="r")
+            log.info(f"{X_train.shape, Z_train.shape, y_train.shape}")
 
         # >>> train_ds.element_spec[1].shape
         # TensorShape([14])
         # num_classes = train_ds.element_spec[1].shape.as_list()[0]
         num_classes = y_train.shape[1]
-
-        log.info(f"{X_train.shape, Z_train.shape, y_train.shape}")
 
         (
             num_samples,
@@ -215,7 +218,7 @@ class Training(object):
                 loss=loss,
                 optimizer=optimizers.Adam(learning_rate=learning_rate, clipnorm=1),
                 metrics=[
-                    tf.keras.metrics.Accuracy(name="acc"),
+                    "acc",
                     tf.keras.metrics.PrecisionAtRecall(recall=0.8, name="pr"),
                     tf.keras.metrics.Precision(name="precision"),
                     tf.keras.metrics.TopKCategoricalAccuracy(name="topk-catacc"),
