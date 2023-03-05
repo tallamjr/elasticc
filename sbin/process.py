@@ -4,7 +4,8 @@ import random
 import numpy as np
 import pandas as pd
 import polars as pl
-from astronet.constants import ELASTICC_FILTER_MAP, ELASTICC_PB_COLORS
+from astronet.constants import LSST_FILTER_MAP as ELASTICC_FILTER_MAP
+from astronet.constants import LSST_PB_COLORS as ELASTICC_PB_COLORS
 from astronet.preprocess import (
     generate_gp_all_objects,
     generate_gp_single_event,
@@ -68,7 +69,7 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 
 
 labels = [
-    111,  # LARGE
+    # 111,  # LARGE
     # 112,
     # 113,  # LARGE 🚧
     # 114,
@@ -81,7 +82,7 @@ labels = [
     # 132,
     # 133,
     # 134,
-    # 135,
+    135,
     # 211,
     # 212,  # LARGE
     # 213,
@@ -89,31 +90,57 @@ labels = [
     # 221,
 ]
 
+cat = "transients"
+# cat = "non-transients"
+# cat = "all-classes"
+
 for label in labels:
 
     print(f"PROCESSING classId -- {label}")
 
-    pdf = pd.read_parquet(
-        f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}"
+    pdf = pl.read_parquet(
+        f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}",
+        use_pyarrow=True,
     )
     # if df.shape[0] >= 1000000:  # if dataframe greater than a million rows
     #     pdf = df.sample(frac=0.2, random_state=SEED)  # then reduce down to 20%
     #     del df
     #     gc.collect()
 
-    pdf["target"] = label
+    pdf.with_column(pl.lit(label).alias("target"))
+    # pdf["target"] = label
+
+    # EXPERIMENTAL POLARS CODE ###
+    # pdf.select(
+    #     pl.struct(["diaSource", "prvDiaForcedSources"])
+    #     .apply(lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"))
+    #     .alias("cpsFlux")
+    # )
+
+    # pdf.with_columns(
+    #     pl.struct(["diaSource", "prvDiaForcedSources"])
+    #     .apply(lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"))
+    #     .alias("cpsFlux")
+    # )
+    # RESULTS IN dtype.Object for new column due to python code UDF. Keeping
+    # with pandas for now
+    # ############################
+    pdf = pdf.to_pandas()
 
     pdf["cpsFlux"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"), axis=1
+        lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"),
+        axis=1,
     )
     pdf["cpsFluxErr"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
         lambda x: extract_field(x, "prvDiaForcedSources", "psFluxErr", "diaSource"),
         axis=1,
     )
+
     pdf["cfilterName"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
         lambda x: extract_field(x, "prvDiaForcedSources", "filterName", "diaSource"),
         axis=1,
     )
+
     pdf["cmidPointTai"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
         lambda x: extract_field(x, "prvDiaForcedSources", "midPointTai", "diaSource"),
         axis=1,
@@ -172,8 +199,8 @@ for label in labels:
     sub = sub[df].reset_index()
 
     def f(x):
-        y = len(x) > 1
-        # Keep rows with more than 12 data points
+        y = len(x) > 5
+        # Keep rows with more than 5 data point
         return y
 
     df = sub["cmidPointTai"].apply(f)
