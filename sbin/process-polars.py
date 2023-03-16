@@ -281,7 +281,7 @@ for label in labels:
         sub.lazy()
         .explode(["cmidPointTai", "cpsFlux", "cpsFluxErr", "cfilterName"])
         .sort(by="cfilterName")
-        .collect()
+        # .collect(streaming=True)
     )
 
     # df = df.explode(
@@ -312,7 +312,9 @@ for label in labels:
     # TODO: make polars version of remap_filters.
     # df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
     # df = df.rename({"passband": "filter"})
-    df = df.with_columns(pl.col("filter").map_dict(ELASTICC_FILTER_MAP))
+    df = df.with_columns(pl.col("filter").map_dict(ELASTICC_FILTER_MAP)).collect(
+        streaming=True
+    )
 
     additional_features = [
         # "z_final",
@@ -346,11 +348,13 @@ for label in labels:
     generated_gp_dataset = generate_gp_all_objects(alert_list, df)
 
     generated_gp_dataset = (
-        generated_gp_dataset.lazy().with_columns(pl.lit(label).alias("target")).collect()
+        generated_gp_dataset.lazy()
+        .with_columns(pl.lit(label).alias("target"))
+        .collect(streaming=True)
     )
 
     assert generated_gp_dataset.select("object_id").unique().height == len(alert_list)
-    print(generated_gp_dataset)
+    # print(generated_gp_dataset)
 
     time_series_feats = [
         "mjd",
@@ -396,28 +400,26 @@ for label in labels:
     )
 
     df_with_xfeats = (
-        df_with_xfeats.lazy().with_columns(pl.lit(branch).alias("branch")).collect()
+        df_with_xfeats.lazy()
+        .with_columns(pl.lit(branch).alias("branch"))
+        .collect(streaming=True)
     )
     print(df_with_xfeats)
 
     # change dtypes for maximal file compression
     # pldf = pl.from_pandas(df_with_xfeats)
-    pldf = (
-        df_with_xfeats.lazy()
-        .with_columns(
-            [
-                pl.all().cast(pl.Float32, strict=False),
-                pl.col("object_id").cast(pl.UInt64, strict=False),
-                pl.col("uuid").cast(pl.UInt32, strict=False),
-                pl.col("target").cast(pl.UInt8, strict=False),
-                pl.col("branch").cast(pl.UInt8, strict=False),
-                # pl.col("nobs").cast(pl.UInt8, strict=False),
-            ]
-        )
-        .collect()
+    pldf = df_with_xfeats.lazy().with_columns(
+        [
+            pl.all().cast(pl.Float32, strict=False),
+            pl.col("object_id").cast(pl.UInt64, strict=False),
+            pl.col("uuid").cast(pl.UInt32, strict=False),
+            pl.col("target").cast(pl.UInt8, strict=False),
+            pl.col("branch").cast(pl.UInt8, strict=False),
+            # pl.col("nobs").cast(pl.UInt8, strict=False),
+        ]
     )
 
-    pldf.write_parquet(f"{ROOT}/data/processed/{cat}/classId-{label}.parquet")
+    pldf.sink_parquet(f"{ROOT}/data/processed/{cat}/classId-{label}.parquet")
 
     # WIP: Test functions
     # test viz function
