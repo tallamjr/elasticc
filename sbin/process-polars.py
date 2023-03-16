@@ -72,26 +72,47 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
     return data
 
 
+# Order of size:
+# 2.2M    classId=121
+# 42M     classId=122
+# 164M    classId=135
+# 239M    classId=123
+# 251M    classId=133
+# 819M    classId=134
+# 887M    classId=124
+# 1.2G    classId=132
+# 1.3G    classId=211
+# 1.5G    classId=114
+# 1.5G    classId=115
+# 1.8G    classId=131
+# 2.6G    classId=213
+# 2.7G    classId=112
+# 3.2G    classId=221
+# 4.5G    classId=214
+# 6.2G    classId=111
+# 6.6G    classId=113
+# 8.0G    classId=212
+
 labels = [
-    # 111,  # LARGE
-    # 112,
-    # 113,  # LARGE 🚧
-    # 114,
-    # 115,
     121,
     122,
-    # 123,
-    # 124,
-    # 131,
-    # 132,
-    # 133,
-    # 134,
     135,
-    # 211,
-    # 212,  # LARGE
-    # 213,
+    123,
+    133,
+    134,
+    124,
+    132,
+    211,
+    114,
+    115,
+    131,
+    213,
+    112,
+    221,
     # 214,  # LARGE
-    # 221,
+    # 111,  # LARGE
+    # 113,  # LARGE
+    # 212,  # LARGE
 ]
 
 sn_like = {111, 112, 113, 114, 115}
