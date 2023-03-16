@@ -94,15 +94,15 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 # 8.0G    classId=212
 
 labels = [
-    121,
-    122,
-    135,
-    123,
-    133,
-    134,
-    124,
-    132,
-    211,
+    # 121,
+    # 122,
+    # 135,
+    # 123,
+    # 133,
+    # 134,
+    # 124,
+    # 132,
+    211,  # TODO: from here
     114,
     115,
     131,
@@ -367,12 +367,25 @@ for label in labels:
         len(time_series_feats) + len(["object_id", "target"]),
     )
     df_merge = df.lazy().drop(columns=["mjd", "filter", "flux", "flux_error"])
+
+    # df_semi = generated_gp_dataset.lazy().join(
+    #     df_merge.lazy(), on="object_id", how="semi"
+    # )
+
+    # df_with_xfeats = (
+    #     df_semi.lazy()
+    #     .join(df_merge.lazy(), on="object_id", how="inner")
+    #     .unique()
+    #     .collect()
+    # )
+
     df_with_xfeats = (
         generated_gp_dataset.lazy()
-        .join(df_merge, on="object_id", how="inner")
+        .join(df_merge.lazy(), on="object_id", how="inner")
         .unique()
-        .collect()
+        .collect(streaming=True)
     )
+
     # df_with_xfeats.drop_duplicates(keep="first", inplace=True, ignore_index=True)
 
     assert df_with_xfeats.shape == (
