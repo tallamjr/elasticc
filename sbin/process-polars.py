@@ -95,8 +95,8 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 
 labels = [
     121,
-    122,
-    135,
+    # 122,
+    # 135,
     # 123,
     # 133,
     # 134,
@@ -133,6 +133,8 @@ branches = {
 # cat = "non-transients"
 cat = "all-classes"
 
+xfeats = True
+
 # TODO: If label in set, add additional catergory, i.e FAST/RECURRING etc. See taxonomy
 for label in labels:
 
@@ -149,42 +151,6 @@ for label in labels:
         low_memory=True,
         parallel="columns",
     )
-    # if df.shape[0] >= 1000000:  # if dataframe greater than a million rows
-    #     pdf = df.sample(frac=0.2, random_state=SEED)  # then reduce down to 20%
-    #     del df
-    #     gc.collect()
-
-    # pdf = pdf.with_columns(pl.lit(label).alias("target"))
-    # pdf["target"] = label
-
-    # EXPERIMENTAL POLARS CODE ###
-    # pdf.select(
-    #     pl.struct(["diaSource", "prvDiaForcedSources"])
-    #     .apply(lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"))
-    #     .alias("cpsFlux")
-    # )
-
-    # pdf.with_columns(
-    #     pl.struct(["diaSource", "prvDiaForcedSources"])
-    #     .apply(lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"))
-    #     .alias("cpsFlux")
-    # )
-    # RESULTS IN dtype.Object for new column due to python code UDF. Keeping
-    # with pandas for now
-    # ############################
-    # out = pdf.filter(
-    #     pl.fold(
-    #         acc=pl.lit(True),
-    #         f=lambda acc, x: acc & x,
-    #         exprs=pl.col("day") < 21,
-    #     ),
-    # ).filter(
-    #     pl.fold(
-    #         acc=pl.lit(True),
-    #         f=lambda acc, x: acc & x,
-    #         exprs=pl.col("day") > 13,
-    #     ),
-    # )
 
     pdf = pdf.to_pandas()
 
@@ -207,65 +173,61 @@ for label in labels:
         axis=1,
     )
 
-    # Additional features
-    pdf["cZ"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "z_final", "diaObject"), axis=1
-    )
-    pdf["cZerr"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "z_final_err", "diaObject"),
-        axis=1,
-    )
-    pdf["cMwebv"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "mwebv", "diaObject"), axis=1
-    )
-    pdf["cRa"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "ra", "diaObject"), axis=1
-    )
-    pdf["cDecl"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "decl", "diaObject"), axis=1
-    )
-    pdf["cHostgal_ra"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_ra", "diaObject"),
-        axis=1,
-    )
-    pdf["cHostgal_dec"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
-        lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_dec", "diaObject"),
-        axis=1,
-    )
-
     cols = [
         "alertId",
         "cmidPointTai",
         "cpsFlux",
         "cpsFluxErr",
         "cfilterName",
-        "cZ",
-        "cZerr",
-        "cMwebv",
-        "cRa",
-        "cDecl",
-        "cHostgal_ra",
-        "cHostgal_dec",
         "SNID",
-        "NOBS",
     ]
+
+    additional_features = {}
+
+    # Additional features
+    if xfeats:
+        pdf["cZ"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+            lambda x: extract_field(x, "prvDiaForcedSources", "z_final", "diaObject"),
+            axis=1,
+        )
+        pdf["cZerr"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+            lambda x: extract_field(x, "prvDiaForcedSources", "z_final_err", "diaObject"),
+            axis=1,
+        )
+        pdf["cMwebv"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+            lambda x: extract_field(x, "prvDiaForcedSources", "mwebv", "diaObject"),
+            axis=1,
+        )
+        pdf["cRa"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+            lambda x: extract_field(x, "prvDiaForcedSources", "ra", "diaObject"), axis=1
+        )
+        pdf["cDecl"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+            lambda x: extract_field(x, "prvDiaForcedSources", "decl", "diaObject"), axis=1
+        )
+        pdf["cHostgal_ra"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+            lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_ra", "diaObject"),
+            axis=1,
+        )
+        pdf["cHostgal_dec"] = pdf[["diaObject", "prvDiaForcedSources"]].apply(
+            lambda x: extract_field(x, "prvDiaForcedSources", "hostgal_dec", "diaObject"),
+            axis=1,
+        )
+
+        additional_features = {
+            "cZ": "z",
+            "cZerr": "z_error",
+            "cMwebv": "mwebv",
+            "cRa": "ra",
+            "cDecl": "dec",
+            "cHostgal_ra": "hostgal_ra",
+            "cHostgal_dec": "hostgal_dec",
+            "NOBS": "nobs",
+        }
+
+        cols.extend(list(additional_features.keys()))
 
     df = pl.from_pandas(pdf)
     df = df.select(cols)
-
-    # sub = df.filter(
-    #     pl.fold(
-    #         acc=pl.lit(True),
-    #         f=lambda acc, x: acc & x,
-    #         exprs=pl.col("cmidPointTai").arr.lengths() > 5,
-    #     ),
-    # ).filter(
-    #     pl.fold(
-    #         acc=pl.lit(True),
-    #         f=lambda acc, x: acc & x,
-    #         exprs=pl.col("cfilterName").arr.unique().arr.lengths() > 1,
-    #     ),
-    # )
 
     sub = (
         df.lazy()
@@ -284,11 +246,6 @@ for label in labels:
         sub.lazy()
         .explode(["cmidPointTai", "cpsFlux", "cpsFluxErr", "cfilterName"])
         .sort(by="cfilterName")
-        # .collect(streaming=True)
-    )
-
-    df = df.explode(
-        ["cZ", "cZerr", "cMwebv", "cRa", "cDecl", "cHostgal_ra", "cHostgal_dec"]
     )
 
     df = df.rename(
@@ -299,33 +256,22 @@ for label in labels:
             "cpsFlux": "flux",
             "cpsFluxErr": "flux_error",
             "cfilterName": "filter",
-            "cZ": "z",
-            "cZerr": "z_error",
-            "cMwebv": "mwebv",
-            "cRa": "ra",
-            "cDecl": "dec",
-            "cHostgal_ra": "hostgal_ra",
-            "cHostgal_dec": "hostgal_dec",
-            "NOBS": "nobs",
         }
     )
+
+    if xfeats:
+        df = df.explode(
+            [x for x in list(additional_features.keys()) if (x != "SNID" and x != "NOBS")]
+            # ["cZ", "cZerr", "cMwebv", "cRa", "cDecl", "cHostgal_ra", "cHostgal_dec"]
+        )
+        df = df.rename(additional_features)
+
     # TODO: make polars version of remap_filters.
     # df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
     # df = df.rename({"passband": "filter"})
     df = df.with_columns(pl.col("filter").map_dict(ELASTICC_FILTER_MAP)).collect(
         streaming=True
     )
-
-    additional_features = [
-        "z_final",
-        "z_final_err",
-        "mwebv",
-        "ra",
-        "dec",
-        "hostgal_ra",
-        "hostgal_dec",
-        "NOBS",
-    ]
 
     assert df.shape[1] == (
         len(
@@ -413,7 +359,6 @@ for label in labels:
             pl.col("uuid").cast(pl.UInt32, strict=False),
             pl.col("target").cast(pl.UInt8, strict=False),
             pl.col("branch").cast(pl.Utf8, strict=False),
-            pl.col("nobs").cast(pl.UInt8, strict=False),
         ]
     )
 
