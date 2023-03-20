@@ -42,7 +42,7 @@ if [ $operation == "train" ]; then
         --dataset $dataset \
         --epochs 200 \
         --model $model \
-        --redshift ""
+        # --redshift ""
 else
     echo "Please provide an argument for $operation"
 fi
