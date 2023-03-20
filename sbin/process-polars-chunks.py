@@ -4,7 +4,9 @@ import random
 import numpy as np
 import pandas as pd
 import polars as pl
-from astronet.constants import LSST_FILTER_MAP as ELASTICC_FILTER_MAP
+
+# from astronet.constants import LSST_FILTER_MAP as ELASTICC_FILTER_MAP
+from astronet.constants import ELASTICC_FILTER_MAP
 from astronet.constants import LSST_PB_COLORS as ELASTICC_PB_COLORS
 from astronet.preprocess import (
     generate_gp_all_objects,
@@ -12,7 +14,7 @@ from astronet.preprocess import (
     remap_filters,
 )
 from astronet.viz.visualise_data import plot_event_data_with_model
-from elasticc.constants import ROOT
+from elasticc.constants import CLASS_MAPPING, ROOT
 
 SEED = 9001
 
@@ -70,46 +72,89 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
     return data
 
 
+# Order of size:
+# 2.2M    classId=121
+# 42M     classId=122
+# 164M    classId=135
+# 239M    classId=123
+# 251M    classId=133
+# 819M    classId=134
+# 887M    classId=124
+# 1.2G    classId=132
+# 1.3G    classId=211
+# 1.5G    classId=114
+# 1.5G    classId=115
+# 1.8G    classId=131
+# 2.6G    classId=213
+# 2.7G    classId=112
+# 3.2G    classId=221
+# 4.5G    classId=214
+# 6.2G    classId=111
+# 6.6G    classId=113
+# 8.0G    classId=212
+
 labels = [
-    # 111,  # LARGE
-    # 112,
-    # 113,  # LARGE 🚧
-    # 114,
-    # 115,
-    # 121,
-    # 122,
+    121,
+    122,
+    135,
     # 123,
-    # 124,
-    # 131,
-    # 132,
     # 133,
     # 134,
-    135,
-    # 211,
-    # 212,  # LARGE
+    # 124,
+    # 132,
+    # 211,  # TODO: from here
+    # 114,
+    # 115,
+    # 131,
     # 213,
-    # 214,  # LARGE
+    # 112,
     # 221,
+    # 214,  # LARGE
+    # 111,  # LARGE
+    # 113,  # LARGE
+    # 212,  # LARGE
 ]
 
-cat = "transients"
-# cat = "non-transients"
-# cat = "all-classes"
+sn_like = {111, 112, 113, 114, 115}
+fast = {121, 122, 123, 124}
+long = {131, 132, 133, 134, 135}
+periodic = {211, 212, 213, 214, 215}
+non_periodic = {221}
 
+branches = {
+    "SN-like": sn_like,
+    "Fast": fast,
+    "Long": long,
+    "Periodic": periodic,
+    "Non-Periodic": non_periodic,
+}
+
+# cat = "transients"
+# cat = "non-transients"
+cat = "all-classes"
+
+# TODO: If label in set, add additional catergory, i.e FAST/RECURRING etc. See taxonomy
 for label in labels:
 
-    print(f"PROCESSING classId -- {label}")
+    branch_dict = {k: label in v for k, v in branches.items()}
+    branch = [k for k, v in branch_dict.items() if v][0]
+    print(f"TAXONOMY BRANCH -- {branch}")
+
+    print(f"PROCESSING classId -- {label} == {CLASS_MAPPING.get(label)}")
 
     pdf = pl.read_parquet(
         f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}",
         use_pyarrow=True,
+        memory_map=True,
+        low_memory=True,
+        parallel="columns",
     )
     # if df.shape[0] >= 1000000:  # if dataframe greater than a million rows
     #     pdf = df.sample(frac=0.2, random_state=SEED)  # then reduce down to 20%
     #     del df
     #     gc.collect()
 
-    pdf = pdf.with_column(pl.lit(label).alias("target"))
+    # pdf = pdf.with_columns(pl.lit(label).alias("target"))
     # pdf["target"] = label
 
     # EXPERIMENTAL POLARS CODE ###
@@ -189,7 +234,7 @@ for label in labels:
 
     cols = [
         "alertId",
-        "target",
+        # "target",
         "cmidPointTai",
         "cpsFlux",
         "cpsFluxErr",
@@ -205,39 +250,28 @@ for label in labels:
         # "NOBS",
     ]
 
-    # sub = pdf[cols]
-
-    # def f(x):
-    #     y = len(list(set(x))) > 1
-    #     # Require at least observations across more than one passband
-    #     return y
-
-    # df = sub["cfilterName"].apply(f)
-    # sub = sub[df].reset_index()
-
-    # def f(x):
-    #     y = len(x) > 5
-    #     # Keep rows with more than 5 data point
-    #     return y
-
-    # df = sub["cmidPointTai"].apply(f)
-    # sub = sub[df].reset_index(drop=True)
-
     df = pl.from_pandas(pdf)
-    sub = df.select(cols)
+    df = df.select(cols)
 
-    out = df.filter(
-        pl.fold(
-            acc=pl.lit(True),
-            f=lambda acc, x: acc & x,
-            exprs=pl.col("cmidPointTai").arr.lengths() > 5,
-        ),
-    ).filter(
-        pl.fold(
-            acc=pl.lit(True),
-            f=lambda acc, x: acc & x,
-            exprs=pl.col("cfilterName").arr.unique().arr.lengths() > 1,
-        ),
+    # sub = df.filter(
+    #     pl.fold(
+    #         acc=pl.lit(True),
+    #         f=lambda acc, x: acc & x,
+    #         exprs=pl.col("cmidPointTai").arr.lengths() > 5,
+    #     ),
+    # ).filter(
+    #     pl.fold(
+    #         acc=pl.lit(True),
+    #         f=lambda acc, x: acc & x,
+    #         exprs=pl.col("cfilterName").arr.unique().arr.lengths() > 1,
+    #     ),
+    # )
+
+    sub = (
+        df.lazy()
+        .filter(pl.col("cfilterName").arr.unique().arr.lengths() > 1)
+        .filter(pl.col("cmidPointTai").arr.lengths() > 5)
+        .collect(streaming=True)
     )
 
     if sub.shape[0] == 0:
@@ -246,9 +280,12 @@ for label in labels:
         )
         continue
 
-    df = sub.explode(
-        column=["cmidPointTai", "cpsFlux", "cpsFluxErr", "cfilterName"]
-    ).sort_values(by=["index", "cfilterName"])
+    df = (
+        sub.lazy()
+        .explode(["cmidPointTai", "cpsFlux", "cpsFluxErr", "cfilterName"])
+        .sort(by="cfilterName")
+        # .collect(streaming=True)
+    )
 
     # df = df.explode(
     #     column=[
@@ -258,7 +295,7 @@ for label in labels:
     # )
 
     df = df.rename(
-        columns={
+        {
             "alertId": "object_id",
             "SNID": "uuid",
             "cmidPointTai": "mjd",
@@ -275,8 +312,12 @@ for label in labels:
             # "NOBS": "nobs",
         }
     )
-
-    df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
+    # TODO: make polars version of remap_filters.
+    # df = remap_filters(df, filter_map=ELASTICC_FILTER_MAP)
+    # df = df.rename({"passband": "filter"})
+    df = df.with_columns(pl.col("filter").map_dict(ELASTICC_FILTER_MAP)).collect(
+        streaming=True
+    )
 
     additional_features = [
         # "z_final",
@@ -289,8 +330,6 @@ for label in labels:
         # "NOBS",
     ]
 
-    df = df.drop(columns=["index"])
-
     assert df.shape[1] == (
         len(
             [
@@ -299,7 +338,7 @@ for label in labels:
                 "flux",
                 "flux_error",
                 "filter",
-                "target",
+                # "target",
                 "uuid",
             ]
         )
@@ -309,13 +348,8 @@ for label in labels:
     alert_list = list(np.unique(df["object_id"]))
     print(f"NUM ALERTS TO BE PROCESSED: {len(alert_list)}")
 
-    if len(alert_list) > 100000:  # if num alerts > 100,000
-        print(f"SUB-SAMPPLING NUM OBJECT LIST FROM {len(alert_list)} TO 10000")
-        random.seed(SEED)
-        alert_list = random.sample(alert_list, 10000)  # then sub-sample down to 10, 000
-
     if len(alert_list) >= 5000:
-        chunk_list = np.array_split(alert_list, 100)
+        chunk_list = np.array_split(alert_list, 20)
     else:
         chunk_list = np.array_split(alert_list, 1)
 
@@ -323,13 +357,21 @@ for label in labels:
 
         print(f"ITERATION : {num}")
 
-        ddf = df[df["object_id"].isin(chunk_list[num])]
+        ddf = df.filter(pl.col("object_id").is_in(chunk_list[num].tolist()))
+
         print(f"NUM ALERTS IN CHUNK : {len(chunk)}")
         generated_gp_dataset = generate_gp_all_objects(chunk, ddf)
-        generated_gp_dataset["target"] = label
 
-        assert len(generated_gp_dataset["object_id"].unique()) == len(chunk)
-        print(generated_gp_dataset)
+        # generated_gp_dataset = generate_gp_all_objects(alert_list, df)
+
+        generated_gp_dataset = (
+            generated_gp_dataset.lazy()
+            .with_columns(pl.lit(label).alias("target"))
+            .collect(streaming=True)
+        )
+
+        assert generated_gp_dataset.select("object_id").unique().height == len(alert_list)
+        # print(generated_gp_dataset)
 
         time_series_feats = [
             "mjd",
@@ -342,51 +384,80 @@ for label in labels:
         ]
 
         assert generated_gp_dataset.shape == (
-            len(chunk) * 100,
+            len(alert_list) * 100,
             len(time_series_feats) + len(["object_id", "target"]),
         )
+        df_merge = (
+            ddf.lazy().drop(columns=["mjd", "filter", "flux", "flux_error"]).collect()
+        )
 
-        df_merge = df.drop(columns=["mjd", "filter", "flux", "flux_error", "target"])
-        df_with_xfeats = generated_gp_dataset.merge(df_merge, on="object_id", how="inner")
-        df_with_xfeats.drop_duplicates(keep="first", inplace=True, ignore_index=True)
+        # df_semi = generated_gp_dataset.lazy().join(
+        #     df_merge.lazy(), on="object_id", how="semi"
+        # )
+
+        # df_with_xfeats = (
+        #     df_semi.lazy()
+        #     .join(df_merge.lazy(), on="object_id", how="inner")
+        #     .unique()
+        #     .collect()
+        # )
+
+        df_with_xfeats = generated_gp_dataset.join(
+            df_merge, on="object_id", how="inner"
+        ).unique()
+
+        # df_with_xfeats.drop_duplicates(keep="first", inplace=True, ignore_index=True)
+
         assert df_with_xfeats.shape == (
-            len(chunk) * 100,
+            len(alert_list) * 100,
             len(time_series_feats)
             + len(additional_features)
             + len(["object_id", "target", "uuid"]),
         )
 
+        df_with_xfeats = df_with_xfeats.lazy().with_columns(
+            pl.lit(branch).alias("branch")
+        )
+
         # change dtypes for maximal file compression
-        pldf = pl.from_pandas(df_with_xfeats)
-        pldf = pldf.with_columns(
+        # pldf = pl.from_pandas(df_with_xfeats)
+        pldf = df_with_xfeats.lazy().with_columns(
             [
                 pl.all().cast(pl.Float32, strict=False),
                 pl.col("object_id").cast(pl.UInt64, strict=False),
                 pl.col("uuid").cast(pl.UInt32, strict=False),
                 pl.col("target").cast(pl.UInt8, strict=False),
+                pl.col("branch").cast(pl.Utf8, strict=False),
                 # pl.col("nobs").cast(pl.UInt8, strict=False),
             ]
         )
 
-        pldf.write_parquet(
+        print(pldf.head().collect())
+
+        pldf.sink_parquet(
             f"{ROOT}/data/processed/{cat}/classId-{label}-{num:03d}.parquet"
         )
 
         del (
-            ddf,
+            df,
             df_merge,
             df_with_xfeats,
             generated_gp_dataset,
+            pdf,
+            pldf,
+            sub,
         )
         gc.collect()
 
+    # WIP: Test functions
     # test viz function
     viz_num_filters = 6
     while viz_num_filters == 6:
-        data = df[df["object_id"] == random.choice(alert_list)]
+        data = ddf.filter(pl.col("object_id") == random.choice(alert_list))
+        # data = df[df["object_id"] == random.choice(alert_list)]
         _obj_gps = generate_gp_single_event(data)
         ax = plot_event_data_with_model(
-            data, obj_model=_obj_gps, pb_colors=ELASTICC_PB_COLORS
+            data.to_pandas(), obj_model=_obj_gps.to_pandas(), pb_colors=ELASTICC_PB_COLORS
         )
         viz_num_filters = len(data["filter"].unique())
         print(f"RAN VIZ TEST WITH {viz_num_filters} FILTERS")
@@ -396,10 +467,7 @@ for label in labels:
         alert_list,
         ax,
         data,
-        df,
-        pdf,
-        pldf,
-        sub,
+        ddf,
         viz_num_filters,
     )
     gc.collect()
