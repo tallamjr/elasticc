@@ -97,15 +97,15 @@ labels = [
     121,
     122,
     135,
-    # 123,
-    # 133,
-    # 134,
-    # 124,
-    # 132,
-    # 211,
-    # 114,
-    # 115,
-    # 131, ##
+    123,
+    133,
+    134,
+    124,
+    132,
+    211,
+    114,
+    115,
+    131,
     # 213,
     # 112,
     # 221,
@@ -125,7 +125,7 @@ branches = {
 
 cat = "all-classes"
 
-xfeats = True  # Incluce additional features? This will reduce number of possible alerts
+xfeats = False  # Incluce additional features? This will reduce number of possible alerts
 # expensive_join = True  # Run expensive join as part of this script or separaetly
 
 cat = cat + "-xfeats" if xfeats else cat + "-tsonly"
@@ -286,7 +286,7 @@ for label in labels:
     print(f"NUM ALERTS TO BE PROCESSED: {len(alert_list)}")
 
     if len(alert_list) >= 5000:
-        chunk_list = np.array_split(alert_list, 20)
+        chunk_list = np.array_split(alert_list, 100)
     else:
         chunk_list = np.array_split(alert_list, 1)
 
@@ -322,74 +322,78 @@ for label in labels:
             [generated_gp_dataset, chunked_generated_gp_dataset], rechunk=True
         )
 
-    generated_gp_dataset = (
-        generated_gp_dataset.lazy()
-        .with_columns([pl.lit(label).alias("target"), pl.lit(branch).alias("branch")])
-        .collect(streaming=True)
-    )
+        generated_gp_dataset = (
+            generated_gp_dataset.lazy()
+            .with_columns([pl.lit(label).alias("target"), pl.lit(branch).alias("branch")])
+            .collect(streaming=True)
+        )
 
-    generated_gp_dataset.write_parquet(
-        f"{ROOT}/data/processed/{cat}/gps-classId-{label}.parquet"
-    )
+        # generated_gp_dataset.write_parquet(
+        #     f"{ROOT}/data/processed/{cat}/gps-classId-{label}.parquet"
+        # )
 
-    assert generated_gp_dataset.select("object_id").unique().height == len(alert_list)
+        assert generated_gp_dataset.select("object_id").unique().height == len(chunk)
 
-    time_series_feats = [
-        "mjd",
-        "lsstg",
-        "lssti",
-        "lsstr",
-        "lsstu",
-        "lssty",
-        "lsstz",
-    ]
-
-    assert generated_gp_dataset.shape == (
-        len(alert_list) * 100,
-        len(time_series_feats) + len(["object_id", "target", "branch"]),
-    )
-
-    df_merge = df.lazy().drop(columns=["mjd", "filter", "flux", "flux_error"]).collect()
-    df_merge.write_parquet(f"{ROOT}/data/processed/{cat}/xfeats-classId-{label}.parquet")
-
-    # A sorted join is much faster than if unsorted beforehand
-    df_with_xfeats = (
-        generated_gp_dataset.sort("object_id")
-        .join(df_merge.sort("object_id"), on="object_id", how="inner")
-        .unique()
-    )
-
-    assert df_with_xfeats.shape == (
-        len(alert_list) * 100,
-        len(time_series_feats)
-        + len(additional_features)
-        + len(["object_id", "target", "uuid", "branch"]),
-    )
-
-    pldf = df_with_xfeats.lazy().with_columns(
-        [
-            pl.all().cast(pl.Float32, strict=False),
-            pl.col("object_id").cast(pl.UInt64, strict=False),
-            pl.col("uuid").cast(pl.UInt32, strict=False),
-            pl.col("target").cast(pl.UInt8, strict=False),
-            pl.col("branch").cast(pl.Utf8, strict=False),
+        time_series_feats = [
+            "mjd",
+            "lsstg",
+            "lssti",
+            "lsstr",
+            "lsstu",
+            "lssty",
+            "lsstz",
         ]
-    )
 
-    pldf.sink_parquet(f"{ROOT}/data/processed/{cat}/classId-{label}.parquet")
+        assert generated_gp_dataset.shape == (
+            len(chunk) * 100,
+            len(time_series_feats) + len(["object_id", "target", "branch"]),
+        )
 
-    print(pldf.head().collect())
+        df_merge = (
+            df.lazy().drop(columns=["mjd", "filter", "flux", "flux_error"]).collect()
+        )
+        # df_merge.write_parquet(f"{ROOT}/data/processed/{cat}/xfeats-classId-{label}.parquet")
 
-    del (
-        df,
-        df_merge,
-        df_with_xfeats,
-        generated_gp_dataset,
-        pdf,
-        pldf,
-        sub,
-    )
-    gc.collect()
+        # A sorted join is much faster than if unsorted beforehand
+        df_with_xfeats = (
+            generated_gp_dataset.sort("object_id")
+            .join(df_merge.sort("object_id"), on="object_id", how="inner")
+            .unique()
+        )
+
+        assert df_with_xfeats.shape == (
+            len(chunk) * 100,
+            len(time_series_feats)
+            + len(additional_features)
+            + len(["object_id", "target", "uuid", "branch"]),
+        )
+
+        pldf = df_with_xfeats.lazy().with_columns(
+            [
+                pl.all().cast(pl.Float32, strict=False),
+                pl.col("object_id").cast(pl.UInt64, strict=False),
+                pl.col("uuid").cast(pl.UInt32, strict=False),
+                pl.col("target").cast(pl.UInt8, strict=False),
+                pl.col("branch").cast(pl.Utf8, strict=False),
+            ]
+        )
+
+        pldf.sink_parquet(
+            f"{ROOT}/data/processed/{cat}/classId-{label}-{num:03d}.parquet"
+        )
+
+        print(pldf.head().collect())
+
+        del (
+            df,
+            df_merge,
+            df_with_xfeats,
+            generated_gp_dataset,
+            pdf,
+            pldf,
+            sub,
+        )
+        gc.collect()
 
     # Test viz function
     viz_num_filters = 6
