@@ -23,7 +23,8 @@ import numpy as np
 import polars as pl
 from astronet.preprocess import one_hot_encode
 from astronet.utils import create_dataset
-from elasticc.constants import ROOT
+from elasticc.constants import CLASS_MAPPING, ROOT
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn import model_selection
 from sklearn.preprocessing import RobustScaler
 
@@ -34,11 +35,33 @@ cat = "transients"
 # cat  = "non-transients"
 # cat = "all-labels"
 
-df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/classId-1*.parquet")
-df.sink_parquet(f"{ROOT}/data/processed/train.parquet")
+# df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/classId-1*.parquet")
+# df.sink_parquet(f"{ROOT}/data/processed/train.parquet")
 
-df = pl.read_parquet(f"{ROOT}/data/processed/train.parquet")
+# df = pl.read_parquet(f"{ROOT}/data/processed/train.parquet")
+df = pl.scan_parquet(f"{ROOT}/data/processed/train.parquet").with_columns(
+    pl.col("target").cast(pl.Int64).map_dict(CLASS_MAPPING)
+)
+
 # df = pl.read_parquet(f"{ROOT}/data/processed/training-transient/classId-121-*")
+
+# df.with_columns(pl.col("target").cast(pl.Int64).map_dict(CLASS_MAPPING))
+# shape: (27942800, 10)
+# ┌──────────────┬────────────┬─────────────┬─────────────┬─────┬─────────────┬──────────────┬────────┬───────────┐
+# │ mjd          ┆ lsstg      ┆ lssti       ┆ lsstr       ┆ ... ┆ lsstz       ┆ object_id    ┆ target ┆ uuid      │
+# │ ---          ┆ ---        ┆ ---         ┆ ---         ┆     ┆ ---         ┆ ---          ┆ ---    ┆ ---       │
+# │ f32          ┆ f32        ┆ f32         ┆ f32         ┆     ┆ f32         ┆ u64          ┆ str    ┆ u32       │
+# ╞══════════════╪════════════╪═════════════╪═════════════╪═════╪═════════════╪══════════════╪════════╪═══════════╡
+# │ 60378.34375  ┆ -71.350517 ┆ 224.562103  ┆ 188.895645  ┆ ... ┆ -28.738251  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
+# │ 60378.65625  ┆ -71.349266 ┆ 230.952515  ┆ 191.703491  ┆ ... ┆ -23.553474  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
+# │ 60378.96875  ┆ -71.243782 ┆ 237.522507  ┆ 194.647873  ┆ ... ┆ -18.159994  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
+# │ 60379.28125  ┆ -71.029121 ┆ 244.291138  ┆ 197.786713  ┆ ... ┆ -12.550078  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
+# │ ...          ┆ ...        ┆ ...         ┆ ...         ┆ ... ┆ ...         ┆ ...          ┆ ...    ┆ ...       │
+# │ 60632.960938 ┆ 280.735565 ┆ 2707.381104 ┆ 1436.50769  ┆ ... ┆ 3839.870605 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
+# │ 60634.988281 ┆ 274.275299 ┆ 2706.633789 ┆ 1430.845215 ┆ ... ┆ 3841.236816 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
+# │ 60637.015625 ┆ 268.01236  ┆ 2705.712891 ┆ 1425.199585 ┆ ... ┆ 3842.293945 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
+# │ 60639.039062 ┆ 261.942627 ┆ 2704.630127 ┆ 1419.590454 ┆ ... ┆ 3843.044922 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
+# └──────────────┴────────────┴─────────────┴─────────────┴─────┴─────────────┴──────────────┴────────┴───────────┘
 
 x = [
     "lsstg",
@@ -51,15 +74,31 @@ x = [
 
 num_gps = 100
 
+df = df.collect()
+# df = df.limit(10000).collect()
+# df = df.with_columns([pl.col(x).shift(num_gps).alias(f"A_lag_{i}") for i in range(df.height)]).select([pl.concat_list([f"A_lag_{i}" for i in range(num_gps)][::-1]).alias("A_rolling")])
+
+# Xs, ys, groups = create_dataset(
+#     df.select(pl.col(x)).collect(),
+#     df.select(pl.col("target")).collect(),
+#     df.select(pl.col("uuid")).collect(),
+#     time_steps=num_gps,
+#     step=num_gps,
+# )
+
 Xs, ys, groups = create_dataset(
     df[x], df["target"], df["uuid"], time_steps=num_gps, step=num_gps
 )
+
+import pdb
+
+pdb.set_trace()
 
 print(groups.shape)
 
 # gss = model_selection.StratifiedGroupKFold(n_splits=2)
 gss = model_selection.GroupShuffleSplit(
-    n_splits=1, random_state=RANDOM_SEED, test_size=None, train_size=0.7
+    n_splits=1, random_state=RANDOM_SEED, test_size=None, train_size=0.8
 )
 gss.get_n_splits()
 
@@ -69,10 +108,6 @@ for i, (train_index, test_index) in enumerate(gss.split(Xs, ys, groups)):
     print(f"Fold {i}:")
     print(f"  Train: index={train_index}, group={groups[train_index]}")
     print(f"  Test:  index={test_index}, group={groups[test_index]}")
-    import pdb
-
-    pdb.set_trace()
-
 
 np.save(f"{ROOT}/data/processed/groups.npy", groups)
 np.save(f"{ROOT}/data/processed/groups_train_idx.npy", groups[train_index])
@@ -83,6 +118,8 @@ X_test = Xs[test_index]
 y_train = ys[train_index]
 y_test = ys[test_index]
 
+# X_train, X_test, y_train, y_test = model_selection.train_test_split(Xs, ys, stratify=ys)
+
 scaler = RobustScaler()
 X_train = X_train.reshape(X_train.shape[0] * 100, 6)
 X_train = scaler.fit(X_train).transform(X_train)
@@ -92,6 +129,20 @@ scaler = RobustScaler()
 X_test = X_test.reshape(X_test.shape[0] * 100, 6)
 X_test = scaler.fit(X_test).transform(X_test)
 X_test = X_test.reshape(X_test.shape[0] // 100, 100, 6)
+
+# # sampler = SVMSMOTE(sampling_strategy="not majority")
+# # sampler = InstanceHardnessThreshold(sampling_strategy="not minority")
+# sampler = RandomUnderSampler(sampling_strategy="not minority")
+
+# X_resampled, y_resampled = sampler.fit_resample(
+#     X_train.reshape(X_train.shape[0], -1), y_train
+# )
+
+# # Re-shape 2D data back to 3D original shape, i.e (BATCH_SIZE, timesteps, num_features)
+# X_resampled = np.reshape(X_resampled, (X_resampled.shape[0], 100, 6))
+
+# X_train = X_resampled
+# y_train = y_resampled
 
 pprint.pprint(Counter(y_train.squeeze()))
 pprint.pprint(Counter(y_test.squeeze()))
