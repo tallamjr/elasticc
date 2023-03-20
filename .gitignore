@@ -12,6 +12,7 @@ logs/
 !data/
 data/*
 
+################################
 !data/processed/
 data/processed/*
 
@@ -19,6 +20,14 @@ data/processed/*
 data/processed/t2/*
 
 !data/processed/t2/dataset.enc
+################################
+!data/raw/
+data/raw/*
+
+!data/raw/ftransfer_elasticc_2023-02-15_946675/
+data/raw/ftransfer_elasticc_2023-02-15_946675/*
+
+!data/raw/ftransfer_elasticc_2023-02-15_946675/classId=121/
 
 # General
 .DS_Store
