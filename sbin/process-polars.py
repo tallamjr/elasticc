@@ -115,18 +115,12 @@ labels = [
     # 212,  # LARGE
 ]
 
-sn_like = {111, 112, 113, 114, 115}
-fast = {121, 122, 123, 124}
-long = {131, 132, 133, 134, 135}
-periodic = {211, 212, 213, 214, 215}
-non_periodic = {221}
-
 branches = {
-    "SN-like": sn_like,
-    "Fast": fast,
-    "Long": long,
-    "Periodic": periodic,
-    "Non-Periodic": non_periodic,
+    "SN-like": {111, 112, 113, 114, 115},
+    "Fast": {121, 122, 123, 124},
+    "Long": {131, 132, 133, 134, 135},
+    "Periodic": {211, 212, 213, 214, 215},
+    "Non-Periodic": {221},
 }
 
 cat = "all-classes"
