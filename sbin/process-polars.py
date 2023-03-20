@@ -132,7 +132,7 @@ branches = {
 cat = "all-classes"
 
 xfeats = True  # Incluce additional features? This will reduce number of possible alerts
-expensive_join = True  # Run expensive join as part of this script or separaetly
+# expensive_join = True  # Run expensive join as part of this script or separaetly
 
 cat = cat + "-xfeats" if xfeats else cat + "-tsonly"
 
@@ -291,7 +291,42 @@ for label in labels:
     alert_list = list(np.unique(df["object_id"]))
     print(f"NUM ALERTS TO BE PROCESSED: {len(alert_list)}")
 
-    generated_gp_dataset = generate_gp_all_objects(alert_list, df)
+    if len(alert_list) >= 5000:
+        chunk_list = np.array_split(alert_list, 20)
+    else:
+        chunk_list = np.array_split(alert_list, 1)
+
+    schema = {
+        "mjd": pl.Float64,
+        "lsstu": pl.Float64,
+        "lsstg": pl.Float64,
+        "lsstr": pl.Float64,
+        "lssti": pl.Float64,
+        "lsstz": pl.Float64,
+        "lssty": pl.Float64,
+        "object_id": pl.Int64,
+    }
+
+    # schema = {c: dtypes[c] for c in columns}
+
+    generated_gp_dataset = pl.DataFrame(
+        data=[],
+        schema=schema,
+    )
+
+    for num, chunk in enumerate(chunk_list):
+
+        # Chunking required due to python code within GP fitting function.
+        print(f"ITERATION : {num}")
+
+        ddf = df.filter(pl.col("object_id").is_in(chunk_list[num].tolist()))
+
+        print(f"NUM ALERTS IN CHUNK : {len(chunk)}")
+        chunked_generated_gp_dataset = generate_gp_all_objects(chunk, ddf)
+
+        generated_gp_dataset = pl.concat(
+            [generated_gp_dataset, chunked_generated_gp_dataset], rechunk=True
+        )
 
     generated_gp_dataset = (
         generated_gp_dataset.lazy()
@@ -323,39 +358,49 @@ for label in labels:
     df_merge = df.lazy().drop(columns=["mjd", "filter", "flux", "flux_error"]).collect()
     df_merge.write_parquet(f"{ROOT}/data/processed/{cat}/xfeats-classId-{label}.parquet")
 
-    if expensive_join:
-        # A sorted join is much faster than if unsorted beforehand
-        df_with_xfeats = (
-            generated_gp_dataset.sort("object_id")
-            .join(df_merge.sort("object_id"), on="object_id", how="inner")
-            .unique()
-        )
+    # A sorted join is much faster than if unsorted beforehand
+    df_with_xfeats = (
+        generated_gp_dataset.sort("object_id")
+        .join(df_merge.sort("object_id"), on="object_id", how="inner")
+        .unique()
+    )
 
-        assert df_with_xfeats.shape == (
-            len(alert_list) * 100,
-            len(time_series_feats)
-            + len(additional_features)
-            + len(["object_id", "target", "uuid", "branch"]),
-        )
+    assert df_with_xfeats.shape == (
+        len(alert_list) * 100,
+        len(time_series_feats)
+        + len(additional_features)
+        + len(["object_id", "target", "uuid", "branch"]),
+    )
 
-        pldf = df_with_xfeats.lazy().with_columns(
-            [
-                pl.all().cast(pl.Float32, strict=False),
-                pl.col("object_id").cast(pl.UInt64, strict=False),
-                pl.col("uuid").cast(pl.UInt32, strict=False),
-                pl.col("target").cast(pl.UInt8, strict=False),
-                pl.col("branch").cast(pl.Utf8, strict=False),
-            ]
-        )
+    pldf = df_with_xfeats.lazy().with_columns(
+        [
+            pl.all().cast(pl.Float32, strict=False),
+            pl.col("object_id").cast(pl.UInt64, strict=False),
+            pl.col("uuid").cast(pl.UInt32, strict=False),
+            pl.col("target").cast(pl.UInt8, strict=False),
+            pl.col("branch").cast(pl.Utf8, strict=False),
+        ]
+    )
 
-        pldf.sink_parquet(f"{ROOT}/data/processed/{cat}/classId-{label}.parquet")
+    pldf.sink_parquet(f"{ROOT}/data/processed/{cat}/classId-{label}.parquet")
 
-        print(pldf.head().collect())
+    print(pldf.head().collect())
+
+    del (
+        df,
+        df_merge,
+        df_with_xfeats,
+        generated_gp_dataset,
+        pdf,
+        pldf,
+        sub,
+    )
+    gc.collect()
 
     # Test viz function
     viz_num_filters = 6
     while viz_num_filters == 6:
-        data = df.filter(pl.col("object_id") == random.choice(alert_list))
+        data = ddf.filter(pl.col("object_id") == random.choice(alert_list))
         _obj_gps = generate_gp_single_event(data)
         ax = plot_event_data_with_model(
             data.to_pandas(), obj_model=_obj_gps.to_pandas(), pb_colors=ELASTICC_PB_COLORS
@@ -368,13 +413,6 @@ for label in labels:
         alert_list,
         ax,
         data,
-        df,
-        df_merge,
-        df_with_xfeats,
-        generated_gp_dataset,
-        pdf,
-        pldf,
-        sub,
         viz_num_filters,
     )
     gc.collect()
