@@ -94,22 +94,22 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 # 8.0G    classId=212
 
 labels = [
-    121,
-    122,
-    135,
-    123,
-    133,
-    134,
-    124,
-    132,
-    211,
-    114,
-    115,
-    131,
+    # 121,
+    # 122,
+    # 135,
+    # 123,
+    # 133,
+    # 134,
+    # 124,
+    # 132,
+    # 211,
+    # 114,
+    # 115,
+    # 131,
     # 213,
     # 112,
     # 221,
-    # 214,  # LARGE
+    214,  # LARGE
     # 111,  # LARGE
     # 113,  # LARGE
     # 212,  # LARGE
@@ -316,11 +316,7 @@ for label in labels:
         ddf = df.filter(pl.col("object_id").is_in(chunk_list[num].tolist()))
 
         print(f"NUM ALERTS IN CHUNK : {len(chunk)}")
-        chunked_generated_gp_dataset = generate_gp_all_objects(chunk, ddf)
-
-        generated_gp_dataset = pl.concat(
-            [generated_gp_dataset, chunked_generated_gp_dataset], rechunk=True
-        )
+        generated_gp_dataset = generate_gp_all_objects(chunk, ddf)
 
         generated_gp_dataset = (
             generated_gp_dataset.lazy()
@@ -385,20 +381,18 @@ for label in labels:
         print(pldf.head().collect())
 
         del (
-            df,
+            ddf,
             df_merge,
             df_with_xfeats,
             generated_gp_dataset,
-            pdf,
             pldf,
-            sub,
         )
         gc.collect()
 
     # Test viz function
     viz_num_filters = 6
     while viz_num_filters == 6:
-        data = ddf.filter(pl.col("object_id") == random.choice(alert_list))
+        data = df.filter(pl.col("object_id") == random.choice(alert_list))
         _obj_gps = generate_gp_single_event(data)
         ax = plot_event_data_with_model(
             data.to_pandas(), obj_model=_obj_gps.to_pandas(), pb_colors=ELASTICC_PB_COLORS
@@ -411,6 +405,9 @@ for label in labels:
         alert_list,
         ax,
         data,
+        df,
+        pdf,
+        sub,
         viz_num_filters,
     )
     gc.collect()
