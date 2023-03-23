@@ -109,10 +109,28 @@ labels = [
     # 213,
     # 112,
     # 221,
-    214,  # LARGE
-    # 111,  # LARGE
-    # 113,  # LARGE
-    # 212,  # LARGE
+    # 214,  # LARGE DONE
+    # 111,  # LARGE DONE
+    113,  # LARGE
+    # 212,  # X-LARGE
+    # 1131,  # LARGE
+    # 1132,  # LARGE
+    # 1133,  # LARGE
+    # 1134,  # LARGE
+    # 1135,  # LARGE
+    # 1136,  # LARGE
+    # 1137,  # LARGE
+    # 1138,  # LARGE
+    # 1139,  # LARGE
+    # 2121,  # X-LARGE
+    # 2122,  # X-LARGE
+    # 2123,  # X-LARGE
+    # 2124,  # X-LARGE
+    # 2125,  # X-LARGE
+    # 2126,  # X-LARGE
+    # 2127,  # X-LARGE
+    # 2128,  # X-LARGE
+    # 2129,  # X-LARGE
 ]
 
 branches = {
@@ -133,19 +151,34 @@ cat = cat + "-xfeats" if xfeats else cat + "-tsonly"
 # TODO: If label in set, add additional catergory, i.e FAST/RECURRING etc. See taxonomy
 for label in labels:
 
+    if label in {2121, 2122, 2123, 2124, 2125, 2126, 2127, 2128, 2129}:
+        label = 212
+    elif label in {1131, 1132, 1133, 1134, 1135, 1136, 1137, 1138, 1139}:
+        label = 113
+
     branch_dict = {k: label in v for k, v in branches.items()}
     branch = [k for k, v in branch_dict.items() if v][0]
     print(f"TAXONOMY BRANCH -- {branch}")
 
     print(f"PROCESSING classId -- {label} == {CLASS_MAPPING.get(label)}")
 
-    pdf = pl.read_parquet(
+    df = pl.read_parquet(
         f"{ROOT}/data/raw/ftransfer_elasticc_2023-02-15_946675/classId={label}",
         use_pyarrow=True,
         memory_map=True,
         low_memory=True,
         parallel="columns",
     )
+
+    print(f"NUM ALERTS == {df.height}")
+    if df.height > 1000000:
+        print(
+            f"{df.height}!! __ain't nobody got time fo' dat!__ DOWNSAMPLING {label} BY 80% ..."
+        )
+        pdf = df.sample(frac=0.2)
+        print(f"NEW SIZE == {pdf.height}")
+        del df
+        gc.collect()
 
     pdf = pdf.to_pandas()
 
@@ -366,11 +399,12 @@ for label in labels:
 
         pldf = df_with_xfeats.lazy().with_columns(
             [
-                pl.all().cast(pl.Float32, strict=False),
+                pl.col("mjd").cast(pl.Float32, strict=False),
+                pl.col("^lsst.*$").cast(pl.Float32, strict=False),
                 pl.col("object_id").cast(pl.UInt64, strict=False),
-                pl.col("uuid").cast(pl.UInt32, strict=False),
                 pl.col("target").cast(pl.UInt8, strict=False),
                 pl.col("branch").cast(pl.Utf8, strict=False),
+                pl.col("uuid").cast(pl.UInt32, strict=False),
             ]
         )
 
