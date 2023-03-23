@@ -31,15 +31,18 @@ from sklearn.preprocessing import RobustScaler
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
-cat = "transients"
-# cat  = "non-transients"
-# cat = "all-labels"
+cat = "all-classes"
+
+xfeats = False  # Incluce additional features? This will reduce number of possible alerts
+# expensive_join = True  # Run expensive join as part of this script or separaetly
+
+cat = cat + "-xfeats" if xfeats else cat + "-tsonly"
 
 # df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/classId-1*.parquet")
 # df.sink_parquet(f"{ROOT}/data/processed/train.parquet")
 
 # df = pl.read_parquet(f"{ROOT}/data/processed/train.parquet")
-df = pl.scan_parquet(f"{ROOT}/data/processed/train.parquet").with_columns(
+df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/class*.parquet").with_columns(
     pl.col("target").cast(pl.Int64).map_dict(CLASS_MAPPING)
 )
 
@@ -63,17 +66,6 @@ df = pl.scan_parquet(f"{ROOT}/data/processed/train.parquet").with_columns(
 # │ 60639.039062 ┆ 261.942627 ┆ 2704.630127 ┆ 1419.590454 ┆ ... ┆ 3843.044922 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
 # └──────────────┴────────────┴─────────────┴─────────────┴─────┴─────────────┴──────────────┴────────┴───────────┘
 
-x = [
-    "lsstg",
-    "lssti",
-    "lsstr",
-    "lsstu",
-    "lssty",
-    "lsstz",
-]
-
-num_gps = 100
-
 df = df.collect()
 # df = df.limit(10000).collect()
 # df = df.with_columns([pl.col(x).shift(num_gps).alias(f"A_lag_{i}") for i in range(df.height)]).select([pl.concat_list([f"A_lag_{i}" for i in range(num_gps)][::-1]).alias("A_rolling")])
@@ -86,13 +78,20 @@ df = df.collect()
 #     step=num_gps,
 # )
 
+x = [
+    "lsstg",
+    "lssti",
+    "lsstr",
+    "lsstu",
+    "lssty",
+    "lsstz",
+]
+
+num_gps = 100
+
 Xs, ys, groups = create_dataset(
-    df[x], df["target"], df["uuid"], time_steps=num_gps, step=num_gps
+    df.select(x), df.select("target"), df.select("uuid"), time_steps=num_gps, step=num_gps
 )
-
-import pdb
-
-pdb.set_trace()
 
 print(groups.shape)
 
@@ -150,7 +149,7 @@ assert set(np.unique(y_train)) == set(np.unique(y_test))
 
 # One hot encode y
 enc, y_train, y_test = one_hot_encode(y_train, y_test)
-encoding_file = f"{ROOT}/data/processed/transient-dataset.enc"
+encoding_file = f"{ROOT}/data/processed/{cat}/labels.enc"
 
 with open(encoding_file, "wb") as f:
     joblib.dump(enc, f)
@@ -158,21 +157,25 @@ with open(encoding_file, "wb") as f:
 print("SAVING NEW DATASET")
 
 # passbands
-np.save(f"{ROOT}/data/processed/X_train.npy", X_train)
-np.save(f"{ROOT}/data/processed/X_test.npy", X_test)
+np.save(f"{ROOT}/data/processed/{cat}/X_train.npy", X_train)
+np.save(f"{ROOT}/data/processed/{cat}/X_test.npy", X_test)
 
 # labels
-np.save(f"{ROOT}/data/processed/y_train.npy", y_train)
-np.save(f"{ROOT}/data/processed/y_test.npy", y_test)
+np.save(f"{ROOT}/data/processed/{cat}/y_train.npy", y_train)
+np.save(f"{ROOT}/data/processed/{cat}/y_test.npy", y_test)
 
-z = [
-    # "z",
-    # "z_error",
-]
+if xfeats:
 
-if z:
+    z = ["z", "z_error"]
 
-    Zs, ys, _ = create_dataset(df[z], df["target"], df["uuid"], time_steps=100, step=100)
+    # redshift
+    Zs, ys, _ = create_dataset(
+        df.select(["z", "z_error"]),
+        df.select("target"),
+        df.select("uuid"),
+        time_steps=num_gps,
+        step=100,
+    )
 
     Z_train = Zs[train_index]
     Z_test = Zs[test_index]
@@ -186,28 +189,41 @@ if z:
     scaler = RobustScaler()
     Z_test = scaler.fit(Z_test).transform(Z_test)
 
-    # z = [
-    #     "ra",
-    #     "dec",
-    #     "hostgal_ra",
-    #     "hostgal_dec",
-    #     "nobs",
-    # ]
+    # other feats
+    zplus = [
+        "ra",
+        "dec",
+        "hostgal_ra",
+        "hostgal_dec",
+        "nobs",
+    ]
 
-    # Zs, ys, _ = create_dataset(df[z], df["target"], df["uuid"], time_steps=100, step=100)
+    if zplus:
 
-    # Z_train_add = Zs[train_index]
-    # Z_test_add = Zs[test_index]
+        Zs, ys, _ = create_dataset(
+            df.select(zplus),
+            df.select("target"),
+            df.select("uuid"),
+            time_steps=100,
+            step=100,
+        )
 
-    # Z_train_add = np.mean(Z_train_add, axis=1)
-    # Z_test_add = np.mean(Z_test_add, axis=1)
+        Z_train_add = Zs[train_index]
+        Z_test_add = Zs[test_index]
 
-    # Z_train = np.hstack((Z_train, Z_train_add))
-    # Z_test = np.hstack((Z_test, Z_test_add))
+        Z_train_add = np.mean(Z_train_add, axis=1)
+        Z_test_add = np.mean(Z_test_add, axis=1)
+
+        Z_train = np.hstack((Z_train, Z_train_add))
+        Z_test = np.hstack((Z_test, Z_test_add))
+
+        z.extend(zplus)
+
+    xfeatures = "_".join(z)
 
     # additional features
-    np.save(f"{ROOT}/data/processed/Z_train.npy", Z_train)
-    np.save(f"{ROOT}/data/processed/Z_test.npy", Z_test)
+    np.save(f"{ROOT}/data/processed/{cat}/Z_train_{xfeatures}.npy", Z_train)
+    np.save(f"{ROOT}/data/processed/{cat}/Z_test_{xfeatures}.npy", Z_test)
 
     print(
         f"TRAIN SHAPES:\n x = {X_train.shape} \n z = {Z_train.shape} \n y = {y_train.shape}"
