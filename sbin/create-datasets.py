@@ -66,7 +66,9 @@ df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/class*.parquet").with_columns
 # │ 60639.039062 ┆ 261.942627 ┆ 2704.630127 ┆ 1419.590454 ┆ ... ┆ 3843.044922 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
 # └──────────────┴────────────┴─────────────┴─────────────┴─────┴─────────────┴──────────────┴────────┴───────────┘
 
-df = df.collect()
+print(df.head().collect())
+
+df = df.collect(streaming=True)
 # df = df.limit(10000).collect()
 # df = df.with_columns([pl.col(x).shift(num_gps).alias(f"A_lag_{i}") for i in range(df.height)]).select([pl.concat_list([f"A_lag_{i}" for i in range(num_gps)][::-1]).alias("A_rolling")])
 
@@ -108,8 +110,8 @@ for i, (train_index, test_index) in enumerate(gss.split(Xs, ys, groups)):
     print(f"  Train: index={train_index}, group={groups[train_index]}")
     print(f"  Test:  index={test_index}, group={groups[test_index]}")
 
-np.save(f"{ROOT}/data/processed/groups.npy", groups)
-np.save(f"{ROOT}/data/processed/groups_train_idx.npy", groups[train_index])
+np.save(f"{ROOT}/data/processed/{cat}/groups.npy", groups)
+np.save(f"{ROOT}/data/processed/{cat}/groups_train_idx.npy", groups[train_index])
 
 X_train = Xs[train_index]
 X_test = Xs[test_index]
