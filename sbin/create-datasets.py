@@ -89,6 +89,7 @@ x = [
     "lsstz",
 ]
 
+num_filters = len(x)
 num_gps = 100
 
 Xs, ys, groups = create_dataset(
@@ -122,14 +123,14 @@ y_test = ys[test_index]
 # X_train, X_test, y_train, y_test = model_selection.train_test_split(Xs, ys, stratify=ys)
 
 scaler = RobustScaler()
-X_train = X_train.reshape(X_train.shape[0] * 100, 6)
+X_train = X_train.reshape(X_train.shape[0] * num_gps, num_filters)
 X_train = scaler.fit(X_train).transform(X_train)
-X_train = X_train.reshape(X_train.shape[0] // 100, 100, 6)
+X_train = X_train.reshape(X_train.shape[0] // num_gps, num_gps, num_filters)
 
 scaler = RobustScaler()
-X_test = X_test.reshape(X_test.shape[0] * 100, 6)
+X_test = X_test.reshape(X_test.shape[0] * num_gps, num_filters)
 X_test = scaler.fit(X_test).transform(X_test)
-X_test = X_test.reshape(X_test.shape[0] // 100, 100, 6)
+X_test = X_test.reshape(X_test.shape[0] // num_gps, num_gps, num_filters)
 
 # # sampler = SVMSMOTE(sampling_strategy="not majority")
 # # sampler = InstanceHardnessThreshold(sampling_strategy="not minority")
@@ -206,7 +207,7 @@ if xfeats:
             df.select(zplus),
             df.select("target"),
             df.select("uuid"),
-            time_steps=100,
+            time_steps=num_gps,
             step=100,
         )
 
