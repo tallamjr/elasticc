@@ -69,6 +69,8 @@ df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/class*.parquet").with_columns
 print(df.head().collect())
 
 df = df.collect(streaming=True)
+
+print(df.height)
 # df = df.limit(10000).collect()
 # df = df.with_columns([pl.col(x).shift(num_gps).alias(f"A_lag_{i}") for i in range(df.height)]).select([pl.concat_list([f"A_lag_{i}" for i in range(num_gps)][::-1]).alias("A_rolling")])
 
@@ -146,8 +148,11 @@ X_test = X_test.reshape(X_test.shape[0] // num_gps, num_gps, num_filters)
 # X_train = X_resampled
 # y_train = y_resampled
 
+print("TRAIN COUNTER:\n")
 pprint.pprint(Counter(y_train.squeeze()))
+print("TEST COUNTER:\n")
 pprint.pprint(Counter(y_test.squeeze()))
+# check same classes in train appear in test
 assert set(np.unique(y_train)) == set(np.unique(y_test))
 
 # One hot encode y
