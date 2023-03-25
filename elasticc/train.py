@@ -132,7 +132,7 @@ class Training(object):
 
         # Lazy load data
         # DPATH = f"{asnwd}/data/plasticc/processed"
-        DPATH = f"{ROOT}/data/processed"
+        DPATH = f"{ROOT}/data/processed/all-classes-tsonly"
 
         X_train = np.load(f"{DPATH}/X_train.npy", mmap_mode="r")
         y_train = np.load(f"{DPATH}/y_train.npy", mmap_mode="r")
