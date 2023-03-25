@@ -82,6 +82,7 @@ print(df.height)
 #     step=num_gps,
 # )
 
+
 x = [
     "lsstg",
     "lssti",
@@ -94,8 +95,13 @@ x = [
 num_filters = len(x)
 num_gps = 100
 
-Xs, ys, groups = create_dataset(
-    df.select(x), df.select("target"), df.select("uuid"), time_steps=num_gps, step=num_gps
+Xs, ys, groups, bs = create_dataset(
+    df.select(x),
+    df.select("target"),
+    df.select("uuid"),
+    df.select("branch"),
+    time_steps=num_gps,
+    step=num_gps,
 )
 
 print(groups.shape)
@@ -155,9 +161,9 @@ pprint.pprint(Counter(y_test.squeeze()))
 # check same classes in train appear in test
 assert set(np.unique(y_train)) == set(np.unique(y_test))
 
-# One hot encode y
+# One hot encode y, all classes
 enc, y_train, y_test = one_hot_encode(y_train, y_test)
-encoding_file = f"{ROOT}/data/processed/{cat}/labels.enc"
+encoding_file = f"{ROOT}/data/processed/{cat}/all-classes.enc"
 
 with open(encoding_file, "wb") as f:
     joblib.dump(enc, f)
@@ -171,6 +177,17 @@ np.save(f"{ROOT}/data/processed/{cat}/X_test.npy", X_test)
 # labels
 np.save(f"{ROOT}/data/processed/{cat}/y_train.npy", y_train)
 np.save(f"{ROOT}/data/processed/{cat}/y_test.npy", y_test)
+
+y_train = bs[train_index]
+y_test = bs[test_index]
+
+# One hot encode y, sub classes (branches)
+enc, y_train, y_test = one_hot_encode(y_train, y_test)
+encoding_file = f"{ROOT}/data/processed/{cat}/branches.enc"
+
+with open(encoding_file, "wb") as f:
+    joblib.dump(enc, f)
+
 
 if xfeats:
 
