@@ -96,7 +96,7 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
 labels = [
     # 121,
     # 122,
-    # 135,
+    135,
     # 123,
     # 133,
     # 134,
@@ -112,7 +112,7 @@ labels = [
     # 214,  # LARGE DONE
     # 111,  # LARGE DONE
     # 113,  # LARGE
-    212,  # X-LARGE
+    # 212,  # X-LARGE
     # 1131,  # LARGE
     # 1132,  # LARGE
     # 1133,  # LARGE
@@ -180,7 +180,7 @@ for label in labels:
         del df
         gc.collect()
 
-    pdf = pdf.to_pandas()
+    pdf = df.to_pandas()
 
     pdf["cpsFlux"] = pdf[["diaSource", "prvDiaForcedSources"]].apply(
         lambda x: extract_field(x, "prvDiaForcedSources", "psFlux", "diaSource"),
@@ -384,10 +384,8 @@ for label in labels:
         # df_merge.write_parquet(f"{ROOT}/data/processed/{cat}/xfeats-classId-{label}.parquet")
 
         # A sorted join is much faster than if unsorted beforehand
-        df_with_xfeats = (
-            generated_gp_dataset.sort("object_id")
-            .join(df_merge.sort("object_id"), on="object_id", how="inner")
-            .unique()
+        df_with_xfeats = generated_gp_dataset.sort("object_id").join(
+            df_merge.unique().sort("object_id"), on="object_id", how="inner"
         )
 
         assert df_with_xfeats.shape == (
