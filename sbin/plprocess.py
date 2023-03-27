@@ -4,15 +4,11 @@ import random
 import numpy as np
 import pandas as pd
 import polars as pl
-
 # from astronet.constants import LSST_FILTER_MAP as ELASTICC_FILTER_MAP
 from astronet.constants import ELASTICC_FILTER_MAP
 from astronet.constants import LSST_PB_COLORS as ELASTICC_PB_COLORS
-from astronet.preprocess import (
-    generate_gp_all_objects,
-    generate_gp_single_event,
-    remap_filters,
-)
+from astronet.preprocess import (generate_gp_all_objects,
+                                 generate_gp_single_event, remap_filters)
 from astronet.viz.visualise_data import plot_event_data_with_model
 from elasticc.constants import CLASS_MAPPING, ROOT
 
@@ -72,27 +68,6 @@ def extract_field(alert: dict, category: str, field: str, key: str) -> np.array:
     return data
 
 
-# Order of size:
-# 2.2M    classId=121
-# 42M     classId=122
-# 164M    classId=135
-# 239M    classId=123
-# 251M    classId=133
-# 819M    classId=134
-# 887M    classId=124
-# 1.2G    classId=132
-# 1.3G    classId=211
-# 1.5G    classId=114
-# 1.5G    classId=115
-# 1.8G    classId=131
-# 2.6G    classId=213
-# 2.7G    classId=112
-# 3.2G    classId=221
-# 4.5G    classId=214
-# 6.2G    classId=111
-# 6.6G    classId=113
-# 8.0G    classId=212
-
 labels = [
     # 121,
     # 122,
@@ -113,24 +88,6 @@ labels = [
     # 111,  # LARGE DONE
     # 113,  # LARGE
     # 212,  # X-LARGE
-    # 1131,  # LARGE
-    # 1132,  # LARGE
-    # 1133,  # LARGE
-    # 1134,  # LARGE
-    # 1135,  # LARGE
-    # 1136,  # LARGE
-    # 1137,  # LARGE
-    # 1138,  # LARGE
-    # 1139,  # LARGE
-    # 2121,  # X-LARGE
-    # 2122,  # X-LARGE
-    # 2123,  # X-LARGE
-    # 2124,  # X-LARGE
-    # 2125,  # X-LARGE
-    # 2126,  # X-LARGE
-    # 2127,  # X-LARGE
-    # 2128,  # X-LARGE
-    # 2129,  # X-LARGE
 ]
 
 branches = {
@@ -150,11 +107,6 @@ cat = cat + "-xfeats" if xfeats else cat + "-tsonly"
 
 # TODO: If label in set, add additional catergory, i.e FAST/RECURRING etc. See taxonomy
 for label in labels:
-
-    if label in {2121, 2122, 2123, 2124, 2125, 2126, 2127, 2128, 2129}:
-        label = 212
-    elif label in {1131, 1132, 1133, 1134, 1135, 1136, 1137, 1138, 1139}:
-        label = 113
 
     branch_dict = {k: label in v for k, v in branches.items()}
     branch = [k for k, v in branch_dict.items() if v][0]
@@ -424,11 +376,9 @@ for label in labels:
     # Test viz function
     viz_num_filters = 6
     while viz_num_filters == 6:
-        data = df.filter(pl.col("object_id") == random.choice(alert_list))
-        _obj_gps = generate_gp_single_event(data)
-        ax = plot_event_data_with_model(
-            data.to_pandas(), obj_model=_obj_gps.to_pandas(), pb_colors=ELASTICC_PB_COLORS
-        )
+    data = df.filter(pl.col("object_id") == random.choice(df.select(pl.col("object_id").unique()).to_series().to_numpy())
+    _obj_gps = generate_gp_single_event(data)
+    ax = plot_event_data_with_model(data.to_pandas(), obj_model=_obj_gps.to_pandas(), pb_colors=ELASTICC_PB_COLORS)
         viz_num_filters = len(data["filter"].unique())
         print(f"RAN VIZ TEST WITH {viz_num_filters} FILTERS")
 
