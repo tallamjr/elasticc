@@ -178,16 +178,26 @@ np.save(f"{ROOT}/data/processed/{cat}/X_test.npy", X_test)
 np.save(f"{ROOT}/data/processed/{cat}/y_train.npy", y_train)
 np.save(f"{ROOT}/data/processed/{cat}/y_test.npy", y_test)
 
-y_train = bs[train_index]
-y_test = bs[test_index]
+# branches
+y_train_bs = bs[train_index]
+y_test_bs = bs[test_index]
+
+print("TRAIN COUNTER:\n")
+pprint.pprint(Counter(y_train_bs.squeeze()))
+print("TEST COUNTER:\n")
+pprint.pprint(Counter(y_test_bs.squeeze()))
+# check same classes in train appear in test
+assert set(np.unique(y_train_bs)) == set(np.unique(y_test_bs))
 
 # One hot encode y, sub classes (branches)
-enc, y_train, y_test = one_hot_encode(y_train, y_test)
+enc, y_train_bs, y_test_bs = one_hot_encode(y_train_bs, y_test_bs)
 encoding_file = f"{ROOT}/data/processed/{cat}/branches.enc"
 
 with open(encoding_file, "wb") as f:
     joblib.dump(enc, f)
 
+np.save(f"{ROOT}/data/processed/{cat}/y_train_bs.npy", y_train_bs)
+np.save(f"{ROOT}/data/processed/{cat}/y_test_bs.npy", y_test_bs)
 
 if xfeats:
 
@@ -257,5 +267,9 @@ if xfeats:
         f"TEST SHAPES:\n x = {X_test.shape} \n z = {Z_test.shape} \n y = {y_test.shape} \n"
     )
 else:
-    print(f"TRAIN SHAPES:\n x = {X_train.shape} \n y = {y_train.shape}")
-    print(f"TEST SHAPES:\n x = {X_test.shape} \n y = {y_test.shape} \n")
+    print(
+        f"TRAIN SHAPES:\n x = {X_train.shape} \n y = {y_train.shape} \n b = {y_train_bs.shape}"
+    )
+    print(
+        f"TEST SHAPES:\n x = {X_test.shape} \n y = {y_test.shape} \n b = {y_test_bs.shape}"
+    )
