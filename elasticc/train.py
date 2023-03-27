@@ -135,18 +135,23 @@ class Training(object):
         DPATH = f"{ROOT}/data/processed/all-classes-tsonly"
 
         X_train = np.load(f"{DPATH}/X_train.npy", mmap_mode="r")
-        y_train = np.load(f"{DPATH}/y_train.npy", mmap_mode="r")
+        y_train = np.load(f"{DPATH}/y_train_bs.npy", mmap_mode="r")
 
         X_test = np.load(f"{DPATH}/X_test.npy", mmap_mode="r")
-        y_test = np.load(f"{DPATH}/y_test.npy", mmap_mode="r")
-
-        log.info(f"{X_train.shape, y_train.shape}")
+        y_test = np.load(f"{DPATH}/y_test_bs.npy", mmap_mode="r")
 
         if self.redshift is not None:
             Z_train = np.load(f"{DPATH}/Z_train.npy", mmap_mode="r")
             Z_test = np.load(f"{DPATH}/Z_test.npy", mmap_mode="r")
             log.info(f"{X_train.shape, Z_train.shape, y_train.shape}")
 
+        # X_train = X_train[:1_000_000, :, :]
+        # y_train = y_train[:1_000_000, :]
+
+        # X_test = X_test[:1_000, :, :]
+        # y_test = y_test[:1_000, :]
+
+        log.info(f"{X_train.shape, y_train.shape}")
         # >>> train_ds.element_spec[1].shape
         # TensorShape([14])
         # num_classes = train_ds.element_spec[1].shape.as_list()[0]
