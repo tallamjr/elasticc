@@ -9,7 +9,7 @@ optuna
 matplotlib
 numpy
 pandas
-polars>=0.16.7
+polars>=0.16.10
 pyarrow>=10.0.1
 pyyaml
 tabulate
