@@ -27,7 +27,7 @@
 #$ -l h_rt=47:10:0
 
 # Request 1 gigabyte of RAM (must be an integer followed by M, G, or T)
-#$ -l mem=80G
+#$ -l mem=60G
 
 # Request 15 gigabyte of TMPDIR space (default is 10 GB - remove if cluster is diskless)
 #$ -l tmpfs=15G
@@ -60,9 +60,8 @@ module load tensorflow/2.11.0/gpu
 # Run the application
 SECONDS=0 # https://stackoverflow.com/a/8903280/4521950
 
-source /home/zcicg57/Scratch/elasticc/conf/elasticc
-
-source /home/zcicg57/Scratch/astronet/conf/astronet
+export ROOT="/scratch/scratch/zcicg57/elasticc"
+export ASNWD="/scratch/scratch/zcicg57/astronet"
 
 export PATH="$HOME/miniconda3/envs/elasticc/bin:$PATH"
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib # https://github.com/tensorflow/tensorflow/issues/52988#issue-1047548284
@@ -94,7 +93,7 @@ echo "Running $operation using $architecture architecture"
 
 dataset="elasticc"
 
-if [ $operation == "train" ]; then
+if [ "$operation" == "train" ]; then
     # Train
     case "$architecture" in
      "atx") model="scaledown-by-4" ;;
