@@ -3,8 +3,10 @@ name: elasticc
 channels:
   - conda-forge
   - defaults
+  - nvidia
 dependencies:
   - pip
+  - cuda
   - python=3.9
   - pip:
     - black
