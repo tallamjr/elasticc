@@ -84,8 +84,9 @@ class Objective(object):
         DPATH = f"{ROOT}/data/processed"
 
         X_train = np.load(f"{DPATH}/X_train.npy")
-        Z_train = np.load(f"{DPATH}/Z_train.npy")
         y_train = np.load(f"{DPATH}/y_train.npy")
+        if self.redshift is not None:
+            Z_train = np.load(f"{DPATH}/Z_train.npy")
 
         # X_test = np.load(f"{DPATH}/X_test.npy", mmap_mode="r")
         # Z_test = np.load(f"{DPATH}/Z_test.npy", mmap_mode="r")
@@ -111,7 +112,8 @@ class Objective(object):
         input_shape = (BATCH_SIZE, timesteps, num_features)
         log.info(f"input_shape:{input_shape}")
 
-        input_shapes = [input_shape, (BATCH_SIZE, Z_train.shape[1])]
+        if self.redshift is not None:
+            input_shapes = [input_shape, (BATCH_SIZE, Z_train.shape[1])]
 
         embed_dim = trial.suggest_categorical(
             "embed_dim", [32, 64, 128, 512]
@@ -135,7 +137,7 @@ class Objective(object):
 
         num_filters = embed_dim  # --> Number of filters to use in ConvEmbedding block, should be equal to embed_dim
 
-        num_aux_feats = Z_train.shape[1]
+        num_aux_feats = Z_train.shape[1] if self.redshift is not None else 0
 
         model = T2Model(
             input_dim=input_shape,
