@@ -120,6 +120,17 @@ if [ "$operation" == "train" ]; then
         --epochs 200 \
         --model $model \
         # --redshift ""
+elif
+  # HyperTrain
+  case "$architecture" in
+   "atx") model="scaledown-by-4" ;;
+   *) model="1613517996-0a72904" ;; # t2 and tinho use same starting hyperparameters
+   # *) model="fix" ;; # trial different set of params
+  esac
+  python $ROOT/elasticc/hypertrain.py \
+      --dataset $dataset \
+      --epochs 40 \
+      --num-trials 5 \
 else
     echo "Please provide an argument for $operation"
 fi

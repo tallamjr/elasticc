@@ -39,7 +39,7 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 from elasticc.constants import ROOT
 
-log_filename = f"{asnwd}/astronet/t2/opt/studies.log"
+log_filename = f"{asnwd}/astronet/tinho/opt/studies.log"
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -61,7 +61,7 @@ try:
     log.info(f"Parent of Directory Path: {Path().absolute().parent}")
 except Exception as e:
     print(f"{e}: Seems you are running from a notebook...")
-    __file__ = f"{Path().resolve().parent}/astronet/t2/opt/hypertrain.py"
+    __file__ = f"{Path().resolve().parent}/astronet/tinho/opt/hypertrain.py"
 
 RANDOM_SEED = 42
 
@@ -386,9 +386,11 @@ if __name__ == "__main__":
     print(best_result)
 
     if redshift:
-        hyper_results_file = f"{asnwd}/astronet/t2/opt/runs/{dataset}/results_with_z.json"
+        hyper_results_file = (
+            f"{asnwd}/astronet/tinho/opt/runs/{dataset}/results_with_z.json"
+        )
     else:
-        hyper_results_file = f"{asnwd}/astronet/t2/opt/runs/{dataset}/results.json"
+        hyper_results_file = f"{asnwd}/astronet/tinho/opt/runs/{dataset}/results.json"
 
     with open(hyper_results_file) as jf:
         data = json.load(jf)
@@ -405,7 +407,7 @@ if __name__ == "__main__":
         json.dump(data, rf, sort_keys=True, indent=4)
 
     with open(
-        f"{asnwd}/astronet/t2/opt/runs/{dataset}/study-{unixtimestamp}-{label}.pkl",
+        f"{asnwd}/astronet/tinho/opt/runs/{dataset}/study-{unixtimestamp}-{label}.pkl",
         "wb",
     ) as sf:
         joblib.dump(study, sf)
