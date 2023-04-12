@@ -120,7 +120,7 @@ if [ "$operation" == "train" ]; then
         --epochs 200 \
         --model $model \
         # --redshift ""
-elif
+elif [ "$operation" == "hyper" ]; then
   # HyperTrain
   case "$architecture" in
    "atx") model="scaledown-by-4" ;;
