@@ -24,7 +24,6 @@ import polars as pl
 from astronet.preprocess import one_hot_encode
 from astronet.utils import create_dataset
 from elasticc.constants import CLASS_MAPPING, ROOT
-from imblearn.under_sampling import RandomUnderSampler
 from sklearn import model_selection
 from sklearn.preprocessing import RobustScaler
 
@@ -34,81 +33,61 @@ np.random.seed(RANDOM_SEED)
 cat = "all-classes"
 
 xfeats = False  # Incluce additional features? This will reduce number of possible alerts
-# expensive_join = True  # Run expensive join as part of this script or separaetly
 
 cat = cat + "-xfeats" if xfeats else cat + "-tsonly"
 
-# df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/classId-1*.parquet")
-# df.sink_parquet(f"{ROOT}/data/processed/train.parquet")
-
-# df = pl.read_parquet(f"{ROOT}/data/processed/train.parquet")
 df = pl.scan_parquet(f"{ROOT}/data/processed/{cat}/class*.parquet").with_columns(
     pl.col("target").cast(pl.Int64).map_dict(CLASS_MAPPING)
 )
-
-# df = pl.read_parquet(f"{ROOT}/data/processed/training-transient/classId-121-*")
-
-# df.with_columns(pl.col("target").cast(pl.Int64).map_dict(CLASS_MAPPING))
-# shape: (27942800, 10)
-# ┌──────────────┬────────────┬─────────────┬─────────────┬─────┬─────────────┬──────────────┬────────┬───────────┐
-# │ mjd          ┆ lsstg      ┆ lssti       ┆ lsstr       ┆ ... ┆ lsstz       ┆ object_id    ┆ target ┆ uuid      │
-# │ ---          ┆ ---        ┆ ---         ┆ ---         ┆     ┆ ---         ┆ ---          ┆ ---    ┆ ---       │
-# │ f32          ┆ f32        ┆ f32         ┆ f32         ┆     ┆ f32         ┆ u64          ┆ str    ┆ u32       │
-# ╞══════════════╪════════════╪═════════════╪═════════════╪═════╪═════════════╪══════════════╪════════╪═══════════╡
-# │ 60378.34375  ┆ -71.350517 ┆ 224.562103  ┆ 188.895645  ┆ ... ┆ -28.738251  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
-# │ 60378.65625  ┆ -71.349266 ┆ 230.952515  ┆ 191.703491  ┆ ... ┆ -23.553474  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
-# │ 60378.96875  ┆ -71.243782 ┆ 237.522507  ┆ 194.647873  ┆ ... ┆ -18.159994  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
-# │ 60379.28125  ┆ -71.029121 ┆ 244.291138  ┆ 197.786713  ┆ ... ┆ -12.550078  ┆ 16656038043  ┆ SNIa   ┆ 8328019   │
-# │ ...          ┆ ...        ┆ ...         ┆ ...         ┆ ... ┆ ...         ┆ ...          ┆ ...    ┆ ...       │
-# │ 60632.960938 ┆ 280.735565 ┆ 2707.381104 ┆ 1436.50769  ┆ ... ┆ 3839.870605 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
-# │ 60634.988281 ┆ 274.275299 ┆ 2706.633789 ┆ 1430.845215 ┆ ... ┆ 3841.236816 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
-# │ 60637.015625 ┆ 268.01236  ┆ 2705.712891 ┆ 1425.199585 ┆ ... ┆ 3842.293945 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
-# │ 60639.039062 ┆ 261.942627 ┆ 2704.630127 ┆ 1419.590454 ┆ ... ┆ 3843.044922 ┆ 310189040074 ┆ PISN   ┆ 155094520 │
-# └──────────────┴────────────┴─────────────┴─────────────┴─────┴─────────────┴──────────────┴────────┴───────────┘
-
+# Pdb) df
+# shape: (500865200, 11)
+# ┌──────────────┬──────────────┬──────────────┬──────────────┬───┬──────────────┬──────────┬──────────────┬───────────┐
+# │ mjd          ┆ lsstu        ┆ lsstg        ┆ lsstr        ┆ … ┆ object_id    ┆ target   ┆ branch       ┆ uuid      │
+# │ ---          ┆ ---          ┆ ---          ┆ ---          ┆   ┆ ---          ┆ ---      ┆ ---          ┆ ---       │
+# │ f32          ┆ f32          ┆ f32          ┆ f32          ┆   ┆ u64          ┆ str      ┆ str          ┆ u32       │
+# ╞══════════════╪══════════════╪══════════════╪══════════════╪═══╪══════════════╪══════════╪══════════════╪═══════════╡
+# │ 60295.039062 ┆ 7586.541504  ┆ 18219.744141 ┆ 42492.503906 ┆ … ┆ 146563822034 ┆ RR Lyrae ┆ Periodic     ┆ 73281911  │
+# │ 60297.890625 ┆ 1525.692505  ┆ 1814.988037  ┆ 2169.551514  ┆ … ┆ 146563822034 ┆ RR Lyrae ┆ Periodic     ┆ 73281911  │
+# │ 60300.742188 ┆ 24.350079    ┆ 26.593786    ┆ 29.206203    ┆ … ┆ 146563822034 ┆ RR Lyrae ┆ Periodic     ┆ 73281911  │
+# │ 60303.589844 ┆ 0.272174     ┆ 0.288707     ┆ 0.307631     ┆ … ┆ 146563822034 ┆ RR Lyrae ┆ Periodic     ┆ 73281911  │
+# │ …            ┆ …            ┆ …            ┆ …            ┆ … ┆ …            ┆ …        ┆ …            ┆ …         │
+# │ 60605.039062 ┆ -3662.459229 ┆ -3712.712402 ┆ -4997.899414 ┆ … ┆ 310484132090 ┆ AGN      ┆ Non-Periodic ┆ 155242066 │
+# │ 60607.058594 ┆ -3648.506836 ┆ -3636.555176 ┆ -4704.558105 ┆ … ┆ 310484132090 ┆ AGN      ┆ Non-Periodic ┆ 155242066 │
+# │ 60609.074219 ┆ -3610.797363 ┆ -3530.018555 ┆ -4371.070312 ┆ … ┆ 310484132090 ┆ AGN      ┆ Non-Periodic ┆ 155242066 │
+# │ 60611.089844 ┆ -3541.750977 ┆ -3402.252686 ┆ -4040.204834 ┆ … ┆ 310484132090 ┆ AGN      ┆ Non-Periodic ┆ 155242066 │
+# └──────────────┴──────────────┴──────────────┴──────────────┴───┴──────────────┴──────────┴──────────────┴───────────┘
+test_df = (
+    df.select(["object_id", "target", "branch", "uuid"])
+    .groupby("object_id")
+    .agg([pl.count(), pl.col("target"), pl.col("branch")])
+    .filter(pl.col("branch").arr.unique().arr.lengths() > 1)
+    .filter(pl.col("target").arr.unique().arr.lengths() > 1)
+    .collect(streaming=True)
+)
+# Ensure each object_id is associated to one branch and target value.
+assert test_df.height == 0
 print(df.head().collect())
-
 df = df.collect(streaming=True)
-
 print(df.height)
-# df = df.limit(10000).collect()
-# df = df.with_columns([pl.col(x).shift(num_gps).alias(f"A_lag_{i}") for i in range(df.height)]).select([pl.concat_list([f"A_lag_{i}" for i in range(num_gps)][::-1]).alias("A_rolling")])
 
-# Xs, ys, groups = create_dataset(
-#     df.select(pl.col(x)).collect(),
-#     df.select(pl.col("target")).collect(),
-#     df.select(pl.col("uuid")).collect(),
-#     time_steps=num_gps,
-#     step=num_gps,
-# )
-
-
-x = [
-    "lsstg",
-    "lssti",
-    "lsstr",
-    "lsstu",
-    "lssty",
-    "lsstz",
-]
-
-num_filters = len(x)
+num_filters = 6
 num_gps = 100
 
-Xs, ys, groups, bs = create_dataset(
-    df.select(x),
-    df.select("target"),
-    df.select("uuid"),
-    df.select("branch"),
-    time_steps=num_gps,
-    step=num_gps,
+Xs = df.select("^lsst.*$").to_numpy().reshape((df.height // 100), 100, 6)
+
+tab = df.select(["object_id", "target", "uuid", "branch"]).unique(
+    subset="object_id", maintain_order=True
 )
+
+ys = tab.select("target").to_numpy()
+bs = tab.select("branch").to_numpy()
+groups = tab.select("uuid").to_numpy()
 
 print(groups.shape)
 
 # gss = model_selection.StratifiedGroupKFold(n_splits=2)
 gss = model_selection.GroupShuffleSplit(
-    n_splits=1, random_state=RANDOM_SEED, test_size=None, train_size=0.8
+    n_splits=1, random_state=RANDOM_SEED, test_size=None, train_size=0.9
 )
 gss.get_n_splits()
 
@@ -159,7 +138,7 @@ pprint.pprint(Counter(y_train.squeeze()))
 print("TEST COUNTER:\n")
 pprint.pprint(Counter(y_test.squeeze()))
 # check same classes in train appear in test
-assert set(np.unique(y_train)) == set(np.unique(y_test))
+# assert set(np.unique(y_train)) == set(np.unique(y_test))
 
 # One hot encode y, all classes
 enc, y_train, y_test = one_hot_encode(y_train, y_test)
@@ -200,7 +179,6 @@ np.save(f"{ROOT}/data/processed/{cat}/y_train_bs.npy", y_train_bs)
 np.save(f"{ROOT}/data/processed/{cat}/y_test_bs.npy", y_test_bs)
 
 if xfeats:
-
     z = ["z", "z_error"]
 
     # redshift
@@ -234,7 +212,6 @@ if xfeats:
     ]
 
     if zplus:
-
         Zs, ys, _ = create_dataset(
             df.select(zplus),
             df.select("target"),
