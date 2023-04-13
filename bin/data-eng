@@ -1,0 +1,72 @@
+#!/bin/bash -l
+# Copyright 2023
+# Author: Tarek Allam Jr.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Batch script to run a serial job under SGE.
+# https://www.rc.ucl.ac.uk/docs/Job_Results/#qsub-emailing
+#$ -m base
+
+# Request ten minutes of wallclock time (format hours:minutes:seconds).
+#$ -l h_rt=47:10:0
+
+# Request 1 gigabyte of RAM (must be an integer followed by M, G, or T)
+#$ -l mem=30G
+
+# Request 15 gigabyte of TMPDIR space (default is 10 GB - remove if cluster is diskless)
+#$ -l tmpfs=15G
+
+## #$ -o logs/$JOB_ID.log
+
+# Combine stdout with stderr
+#$ -j yes
+
+# Set the name of the job.
+#$ -N t3-train-elasticc
+
+# Set the working directory to somewhere in your scratch space.
+#  This is a necessary step as compute nodes cannot write to $HOME.
+# Replace "<your_UCL_id>" with your UCL user ID.
+#$ -wd /home/zcicg57/Scratch/workspace
+
+# Your work should be done in $TMPDIR
+cd $TMPDIR
+
+# Run the application
+SECONDS=0 # https://stackoverflow.com/a/8903280/4521950
+
+export ROOT="/scratch/scratch/zcicg57/elasticc"
+export ASNWD="/scratch/scratch/zcicg57/astronet"
+
+export PATH="$HOME/miniconda3/envs/elasticc/bin:$PATH"
+conda activate elasticc
+conda activate base # To make your changes take effect reactivating elasticc environment
+conda activate elasticc
+which python
+which pip
+
+# Verify install:
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+
+pip install --no-cache-dir --ignore-installed -r $ASNWD/requirements.txt
+pip install --no-cache-dir --ignore-installed -r $ROOT/requirements.txt
+pip install $ROOT
+
+export PYTHONHASHSEED=0
+which python
+date
+# Test Imports
+python -c "import astronet as asn; print(asn.__version__)"
+python -c "import tensorflow as tf; print(tf.__version__);"
+
+python $ROOT/sbin/create-datasets.py
