@@ -82,14 +82,16 @@ tab = df.select(["object_id", "target", "uuid", "branch"]).unique(
 
 ys = tab.select("target").to_numpy()
 bs = tab.select("branch").to_numpy()
-groups = tab.select("uuid").to_numpy()
+groups = tab.select("uuid").to_numpy().flatten()
 
 print(groups.shape)
 
-# gss = model_selection.StratifiedGroupKFold(n_splits=2)
+# gss = model_selection.StratifiedGroupKFold(n_splits=2, random_state=RANDOM_SEED)
+
 gss = model_selection.GroupShuffleSplit(
-    n_splits=1, random_state=RANDOM_SEED, test_size=None, train_size=0.9
+    n_splits=1, random_state=RANDOM_SEED, test_size=None, train_size=0.7
 )
+
 gss.get_n_splits()
 
 print(gss)
@@ -107,8 +109,6 @@ X_test = Xs[test_index]
 
 y_train = ys[train_index]
 y_test = ys[test_index]
-
-# X_train, X_test, y_train, y_test = model_selection.train_test_split(Xs, ys, stratify=ys)
 
 scaler = RobustScaler()
 X_train = X_train.reshape(X_train.shape[0] * num_gps, num_filters)
@@ -134,12 +134,12 @@ X_test = X_test.reshape(X_test.shape[0] // num_gps, num_gps, num_filters)
 # X_train = X_resampled
 # y_train = y_resampled
 
-print("TRAIN COUNTER:\n")
+print("\nTRAIN COUNTER:\n")
 pprint.pprint(Counter(y_train.squeeze()))
-print("TEST COUNTER:\n")
+print("\nTEST COUNTER:\n")
 pprint.pprint(Counter(y_test.squeeze()))
 # check same classes in train appear in test
-# assert set(np.unique(y_train)) == set(np.unique(y_test))
+assert set(np.unique(y_train)) == set(np.unique(y_test))
 
 # One hot encode y, all classes
 enc, y_train, y_test = one_hot_encode(y_train, y_test)
@@ -162,9 +162,9 @@ np.save(f"{ROOT}/data/processed/{cat}/y_test.npy", y_test)
 y_train_bs = bs[train_index]
 y_test_bs = bs[test_index]
 
-print("TRAIN COUNTER:\n")
+print("\nTRAIN COUNTER:\n")
 pprint.pprint(Counter(y_train_bs.squeeze()))
-print("TEST COUNTER:\n")
+print("\nTEST COUNTER:\n")
 pprint.pprint(Counter(y_test_bs.squeeze()))
 # check same classes in train appear in test
 assert set(np.unique(y_train_bs)) == set(np.unique(y_test_bs))
